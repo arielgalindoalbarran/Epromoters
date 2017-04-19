@@ -1,0 +1,163 @@
+rule test_workdir:
+	"""
+	Created: 2016-05-16 15h42
+	Trying to figure out how the "worklow" wildcard behave.
+	"""
+	shell:"""
+	echo "workflow.workdir: {workflow.workdir}" > test_workdir
+	echo "workflow.basedir: {workflow.basedir}" >> test_workdir
+        echo "workflow: {workflow}" >> test_workdir
+        echo "workflow.snakefile: {workflow.snakefile}" >> test_workdir
+	"""
+
+rule install_miniconda:
+	"""
+	Created: 2016-05-16 14h54
+	
+	-b, batch mode
+	-p, installation prefix/path
+	-f, force installation even if prefix -p already exists (which is the always the case because snakemake create the output path)
+	"""
+	output:	conda="soft/miniconda/bin/conda"
+	shell:"""
+	cd soft	
+	rm -f Miniconda3-4.0.5-Linux-x86_64.sh
+	wget http://repo.continuum.io/miniconda/Miniconda3-4.0.5-Linux-x86_64.sh
+	bash Miniconda3-4.0.5-Linux-x86_64.sh -b -f -p miniconda
+        rm -f Miniconda3-4.0.5-Linux-x86_64.sh
+	
+	## Adding channels
+	cd miniconda/bin
+	./conda config --add channels r
+        ./conda config --add channels bioconda
+	"""
+
+rule install_python2_env:
+        """
+        """
+        input: conda="soft/miniconda/bin/conda"
+        output: expand("soft/miniconda/envs/py27/bin/{bin}",bin=["python2.7","bamCoverage","bamCompare","bigwigCompare"])
+        resources: conda_token=1
+        shell:"""
+        {input.conda} update conda --yes
+        
+        # Removing the environment directory, automatically created by Snakemake, to please Conda.
+        rm -rf soft/miniconda/envs/py27
+        {input.conda} create -n py27 python=2.7 --yes 
+
+        # Install bamCoverage, bamCompare, etc...
+        {input.conda} install -n py27 --yes -c bioconda deeptools=2.2.4
+        
+        touch {output}
+        """
+
+rule install_gtftoolkit:
+	"""
+	A rule need to be created to install gtftoolkit:
+	git clone Denis' rep
+	Use the pip in the python2.7 conda environment to do the installation. I had to install pybedtools too for coverage too.
+	"""
+
+rule install_python3_env:
+        """
+        """
+        input: conda="soft/miniconda/bin/conda"
+        output: py35="soft/miniconda/envs/py35/bin/python3.5"
+        shell:"""
+        {input.conda} update conda --yes
+        
+	rm -rf soft/miniconda/envs/py35
+	{input.conda} create -n py35 python=3.5 --yes
+	echo "test"
+	{input.conda} install -n py35 --yes -n py35 snakemake rpy2 r-docopt
+	touch {output.py35}
+        """
+
+
+rule install_sra_toolkit:
+	"""
+	Created: 2016-05-10 17h07
+	"""
+	output: "soft/sratoolkit.2.6.2-centos_linux64/bin/fastq-dump"
+	shell:"""
+	cd soft
+	wget http://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/2.6.2/sratoolkit.2.6.2-centos_linux64.tar.gz
+	tar -xzf sratoolkit.2.6.2-centos_linux64.tar.gz
+	rm -f sratoolkit.2.6.2-centos_linux64.tar.gz
+	"""
+
+rule install_bowtie2:
+	"""
+	Created: 2016-05-11 14h47
+	"""
+	output: "soft/bowtie2-2.2.9/bowtie2"
+	shell:"""
+	cd soft
+	wget http://downloads.sourceforge.net/project/bowtie-bio/bowtie2/2.2.9/bowtie2-2.2.9-linux-x86_64.zip
+	unzip bowtie2-2.2.9-linux-x86_64.zip
+	rm -f bowtie2-2.2.9-linux-x86_64.zip
+	"""
+
+rule install_macs14:
+	"""
+	Created: 2016-05-12 12h08
+	"""
+	input: conda="soft/anaconda2/bin/conda"
+	output: macs="soft/anaconda2/bin/macs"
+	shell:"""
+	# Obsolete because anaconda can install it.
+	#cd soft
+	#wget https://github.com/downloads/taoliu/MACS/MACS-1.4.2-1.tar.gz
+	#tar -xvf MACS-1.4.2-1.tar.gz	
+	
+	soft/anaconda2/bin/conda install --yes -c auto macs=1.4.3
+	"""
+	
+rule install_vim:
+	"""
+	http://blog.belgoat.com/installing-linux-software-without-root-privileges-vim-ycm/
+	"""
+	input: python="soft/anaconda2/bin/python"
+	shell:"""
+	wget ftp://ftp.vim.org/pub/vim/unix/vim-7.4.tar.bz2
+	tar xvf vim-7.4.tar.bz2
+	
+	./configure --prefix=/gpfs/tagc/home/gcharbonnier/grenoble_project/part2/soft/vim74 --with-features=huge --enable-rubyinterp --enable-pythoninterp --with-python-config-dir=anaconda2/bin/python --enable-perlinterp --enable-gui=gtk2 --enable-cscope --enable-luainterp
+	
+	
+	#./configure --prefix=~/vim74 \
+	#            --with-features=huge \
+	#            --enable-rubyinterp \
+	#            --enable-pythoninterp \
+	#            --with-python-config-dir=/usr/lib/python2.6/config \
+	#            --enable-perlinterp \
+	#            --enable-gui=gtk2 --enable-cscope \
+	#            --enable-luainterp
+	make
+	make install
+	"""
+
+
+rule install_vundle_YCM:
+	shell:"""
+	mkdir ~/.vim
+cd ~/.vim
+git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
+echo "set nocompatible" >> ~/.vimrc
+echo "filetype off" >> ~/.vimrc
+echo "set rtp+=~/.vim/bundle/vundle/" >> ~/.vimrc
+echo "call vundle#rc()" >> ~/.vimrc
+echo "Bundle 'gmarik/vundle'" >> ~/.vimrc
+echo "Bundle 'Valloric/YouCompleteMe'" >> ~/.vimrc
+echo "filetype plugin indent on" >> ~/.vimrc	
+	"""
+
+rule install_cmake:
+	"""
+	Needed to install YCM
+	"""
+	shell:"""
+	http://www.cmake.org/cmake/resources/software.html
+	
+	https://cmake.org/files/v3.5/cmake-3.5.1-Linux-x86_64.tar.gz
+	"""

@@ -1,0 +1,48 @@
+rule filter_chiapet_kuznetsova:
+    """
+    Usage:
+    expand("RESULTS/FILTER_ON_CHIAPET/Hela_TableS2_Kuznetsova_PET_clusters_{mark}_fltr.txt", mark=["CTCF","RNAPII"])
+    """
+    input: "DATA/{exp}.csv"
+    output: "RESULTS/FILTER_ON_CHIAPET/{exp}_fltr.txt"
+    threads: 1
+    run: 
+        R("""
+        d <- read.table("{input}", header=TRUE)
+        colnames(d) <- c('chrom1','start1','stop1','chrom2','start2','stop2','pair_name','IAB_to_move')
+        d$Z <- NA
+        d$strand1 <- NA
+        d$strand2 <- NA
+        d$CA <- NA
+        d$CB <- NA
+        d$IAB <- d$IAB_to_move
+        d$IAB_to_move <- NULL
+        d<- d[d$chrom1==d$chrom2,]
+	write.table(d, "{output}", sep="\t", quote=F, col.names=NA)
+        """)
+
+rule filter_chiapet_tang:
+    """
+    Usage:
+    expand("RESULTS/FILTER_ON_CHIAPET/Hela_TableS2_Kuznetsova_PET_clusters_{mark}_fltr.txt", mark=["CTCF","RNAPII"])
+    """
+    input: "DATA/{exp}.txt"
+    output: "RESULTS/FILTER_ON_CHIAPET/{exp}_fltr.txt"
+    threads: 1
+    run: 
+        R("""
+        d <- read.table("{input}", header=FALSE)
+        colnames(d) <- c('chrom1','start1','stop1','chrom2','start2','stop2','IAB_to_move')
+        d$pair_name <- c(1:dim(d)[1])
+        d$Z <- NA
+        d$strand1 <- NA
+        d$strand2 <- NA
+        d$CA <- NA
+        d$CB <- NA
+        d$IAB <- d$IAB_to_move
+        d$IAB_to_move <- NULL
+        d<- d[as.character(d$chrom1)==as.character(d$chrom2),]
+        write.table(d, "{output}", sep="\t", quote=F, col.names=NA)
+        """)
+
+

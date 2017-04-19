@@ -1,0 +1,33 @@
+import os
+from snakemake.utils import read_job_properties
+"""
+Explanation from:
+https://bitbucket.org/snakemake/snakemake/wiki/Documentation
+
+When executing a workflow on a cluster using the --cluster parameter (see below), Snakemake creates a job script for each job to execute. This script is then invoked using the provided cluster submission command (e.g. qsub). Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters. As this might be based on properties of the job, Snakemake stores the job properties (e.g. rule name, threads, input files, params etc.) as JSON inside the job script. For convenience, there exists a parser function snakemake.utils.read_job_properties that can be used to access the properties.
+"""
+
+
+rule flowcharts:
+        """
+        Draw flowcharts for the given snakefile: dag and rulegraph.
+        """
+        input:  #workflow="code/snakemake/workflows/{id}.snakefile",\
+                workflow="{id}",\
+		snakemake="soft/miniconda/envs/py35/bin/snakemake"
+        output: dag_dot = "RESULTS/workflow/dag/{id}.dot",\
+                dag_pdf = "RESULTS/workflow/dag/{id}.pdf",\
+                dag_png = "RESULTS/workflow/dag/{id}.png",\
+                rulegraph_dot = "RESULTS/workflow/rulegraph/{id}.dot",\
+                rulegraph_pdf = "RESULTS/workflow/rulegraph/{id}.pdf",\
+                rulegraph_png = "RESULTS/workflow/rulegraph/{id}.png"
+        threads: 1
+        shell:"""
+        {input.snakemake} -s {input.workflow} --rulegraph > {output.rulegraph_dot}
+        dot {output.rulegraph_dot} -Tpdf -o {output.rulegraph_pdf}
+        dot {output.rulegraph_dot} -Tpng -o {output.rulegraph_png}
+
+        {input.snakemake} -s {input.workflow} --dag | perl -pe 's/graph\[/graph\[rankdir='LR', /' > {output.dag_dot}
+        dot {output.dag_dot} -Tpdf -o {output.dag_pdf}
+        dot {output.dag_dot} -Tpng -o {output.dag_png}
+        """

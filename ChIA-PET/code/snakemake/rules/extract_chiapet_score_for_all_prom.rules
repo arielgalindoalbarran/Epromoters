@@ -1,0 +1,84 @@
+rule extract_chiapet_scores_for_all_prom:
+    """
+    Modified: 2016-03-14 18h38
+    """
+    input: txt="RESULTS/FILTER_ON_CHIAPET/{exp}_fltr.txt", \
+        all_prom="DATA/SalvaWork/All_hpromoterRegions_pm1kb.bed",\
+        all_prom_complete_ids="DATA/SalvaWork/All_hpromoterRegions.txt",\
+        interacting_prom="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/active/{exp}_interacting_promoters.bed"
+    output: interacting_prom="RESULTS/extract_chiapet_scores_all_prom/{ft_or_broad}/{mark}_{strain}/{exp}_prom_in_interacting_promoters.txt"
+    threads: 1
+    shell: """
+    # Select R1 fragment (line num as bed name)
+    awk 'BEGIN{{FS=OFS="\\t"}}{{print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14}}' {input.txt} | perl -ne 'print if($. > 1)' > {input.txt}_R1_tmp_ext.bed
+    
+    # Select R2 fragment (line num as bed name)
+    awk 'BEGIN{{FS=OFS="\\t"}}{{print $5,$6,$7,$2,$3,$4,$8,$9,$10,$11,$12,$13,$14}}' {input.txt} | perl -ne 'print if($. > 1)' > {input.txt}_R2_tmp_ext.bed
+
+    ###
+    # e-prom 1st in pair
+    ###
+    echo -e "#  e-prom or selected control is first pair in chiapet results
+mate_promoter_coord_and_gene_id\tpair_name\tZ_score\tCA\tCB\tIAB\te-promoter_coord_and_gene_id" > {output.interacting_prom}
+ 
+    bedtools intersect -a {input.all_prom} -b {input.txt}_R1_tmp_ext.bed -wa -wb | \
+    bedtools intersect -a - -b {input.interacting_prom} -wa -wb > {output.interacting_prom}_R1.txt
+
+    cut -f10- {output.interacting_prom}_R1.txt | bedtools intersect -a {input.all_prom} -b - -wa -wb | sort | uniq >> {output.interacting_prom}_R1_step2.txt
+
+    rm -f {output.interacting_prom}_R1_step3.txt
+
+    # We touch the file to avoid error missing file if there is no match with the grep command
+    touch {output.interacting_prom}_R1_step3.txt
+
+    for i in `cut -f4 {output.interacting_prom}_R1_step2.txt`
+        do
+        grep -s -m 1 -E "${{i}}[^0-9]" {input.all_prom_complete_ids} | cut -f4,7 | tr "\t" "_" >> {output.interacting_prom}_R1_step3.txt
+        done
+
+    cut -f1-3 {output.interacting_prom}_R1_step2.txt > {output.interacting_prom}_R1_step2_cut_-f1-3.txt
+
+    cut -f5- {output.interacting_prom}_R1_step2.txt >  {output.interacting_prom}_R1_step2_cut_-f5-.txt
+
+    paste --delimiter="\t" {output.interacting_prom}_R1_step2_cut_-f1-3.txt {output.interacting_prom}_R1_step3.txt {output.interacting_prom}_R1_step2_cut_-f5-.txt | cut -f4,10,11,14-16,20 >>  {output.interacting_prom}
+
+    
+    rm -f {output.interacting_prom}_R1.txt {output.interacting_prom}_R1_step2.txt {output.interacting_prom}_R1_step2_cut_-f1-3.txt {output.interacting_prom}_R1_step3.txt {output.interacting_prom}_R1_step2_cut_-f5-.txt
+
+
+    ###
+    # e-prom second in pair
+    ###
+
+    echo -e "# e-prom or selected control is second pair in chiapet result
+mate_promoter_coord_and_gene_id\tpair_name\tZ_score\tCA\tCB\tIAB\te-promoter_coord_and_gene_id" >> {output.interacting_prom}
+    
+    bedtools intersect -a {input.all_prom} -b {input.txt}_R2_tmp_ext.bed -wa -wb | \
+            bedtools intersect -a - -b {input.interacting_prom} -wa -wb > {output.interacting_prom}_R2.txt
+    
+    cut -f10- {output.interacting_prom}_R2.txt | bedtools intersect -a {input.all_prom} -b - -wa -wb | sort | uniq > {output.interacting_prom}_R2_step2.txt
+    
+    rm -f {output.interacting_prom}_R2_step3.txt
+
+    # We touch the file to avoid error missing file if there is no match with the grep command
+    touch {output.interacting_prom}_R2_step3.txt
+
+    for i in `cut -f4 {output.interacting_prom}_R2_step2.txt`
+        do
+        grep -s -m 1 -E "${{i}}[^0-9]" {input.all_prom_complete_ids} | cut -f4,7 | tr "\t" "_" >> {output.interacting_prom}_R2_step3.txt
+        done
+
+    cut -f1-3 {output.interacting_prom}_R2_step2.txt > {output.interacting_prom}_R2_step2_cut_-f1-3.txt
+
+    cut -f5- {output.interacting_prom}_R2_step2.txt >  {output.interacting_prom}_R2_step2_cut_-f5-.txt
+
+    paste --delimiter="\t" {output.interacting_prom}_R2_step2_cut_-f1-3.txt {output.interacting_prom}_R2_step3.txt {output.interacting_prom}_R2_step2_cut_-f5-.txt | cut -f4,10,11,14-16,20 >>  {output.interacting_prom}
+
+    rm -f {output.interacting_prom}_R2.txt {output.interacting_prom}_R2_step2.txt {output.interacting_prom}_R2_step2_cut_-f1-3.txt {output.interacting_prom}_R2_step3.txt {output.interacting_prom}_R2_step2_cut_-f5-.txt
+    
+    
+    mkdir --parents RESULTS/extract_chiapet_scores/renamed
+    cp {output.interacting_prom} "RESULTS/extract_chiapet_scores/renamed/{wildcards.ft_or_broad}_{wildcards.mark}_{wildcards.strain}_{wildcards.exp}.txt"
+    """
+
+

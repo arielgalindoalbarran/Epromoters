@@ -1,0 +1,151 @@
+import glob
+import os
+from snakemake.utils import R
+
+
+
+##------------------------------------------------------------------------------------------------------------##
+## Shell command to run the snakemake
+##------------------------------------------------------------------------------------------------------------##
+#Sorting reads in STAR _reads consumes a lot of memory. Please adapt it to your needs.
+
+##------------------------------------------------------------------------------------------------------------##
+## Shell command to run the snakemake
+##------------------------------------------------------------------------------------------------------------##
+# snakemake -s snakemake.py -c "qsub -V -q tagc -o log/qsub -e log/qsub -l {params.ppn}" -j
+
+
+##------------------------------------------------------------------------------------------------------------##
+## Working directory
+##------------------------------------------------------------------------------------------------------------##
+
+WDIR = "/gpfs/tagc/home/gcharbonnier/ariel"
+workdir:WDIR
+
+##------------------------------------------------------------------------------------------------------------##
+## Variables declaration
+## Declaring some variables used by topHat... (GTF file, INDEX, chromosome length)
+##------------------------------------------------------------------------------------------------------------##
+
+# Random number génerator
+SEED="123"
+
+# Defining wildcards 
+K562_EPIMARKS_ACCESSION_IDS, = glob_wildcards("data/Encode/K562/epimarks/{id}.bigWig")
+K562_TFACTORS_ACCESSION_IDS, =  glob_wildcards("data/Encode/K562/tfactors/{id}.bigWig")
+K562_DNASE_ACCESSION_IDS, = glob_wildcards("data/Encode/K562/dnase/{id}.bigWig")
+K562_FAIRE_ACCESSION_IDS, =  glob_wildcards("data/Encode/K562/faire/{id}.bigWig")
+
+HELA_EPIMARKS_ACCESSION_IDS, = glob_wildcards("data/Encode/hela/epimarks/{id}.bigWig")
+HELA_TFACTORS_ACCESSION_IDS, =  glob_wildcards("data/Encode/hela/tfactors/{id}.bigWig")
+HELA_DNASE_ACCESSION_IDS, = glob_wildcards("data/Encode/hela/dnase/{id}.bigWig")
+HELA_FAIRE_ACCESSION_IDS, =  glob_wildcards("data/Encode/hela/faire/{id}.bigWig")
+
+
+
+#print(EXP)
+
+##------------------------------------------##
+## Rule / targets
+##------------------------------------------##
+
+#ruleorder: filter_chiapet_interaction_on_len > filter_chiapet_interaction_on_nb_count
+
+rule final:
+    input: 'results/control_list_for_jaime/control_based_on_hela.txt',\
+           'results/control_list_for_jaime/correlation_k562_and_hela.pdf',\
+           "data/All_hpromoterRegions_m200p50_geneID.gtf",\
+           # Compute Coverage:
+           ## For TF-like marks:
+           ### For K562:
+           expand('results/coverage_tf/K562/tfactors/{accession_id}.tab', accession_id=K562_TFACTORS_ACCESSION_IDS),\
+           expand('results/coverage_tf/K562/dnase/{accession_id}.tab', accession_id=K562_DNASE_ACCESSION_IDS),\
+           expand('results/coverage_tf/K562/faire/{accession_id}.tab', accession_id=K562_FAIRE_ACCESSION_IDS),\
+           ### For hela:
+           expand('results/coverage_tf/hela/tfactors/{accession_id}.tab', accession_id=HELA_TFACTORS_ACCESSION_IDS),\
+           expand('results/coverage_tf/hela/dnase/{accession_id}.tab', accession_id=HELA_DNASE_ACCESSION_IDS),\
+           expand('results/coverage_tf/hela/faire/{accession_id}.tab', accession_id=HELA_FAIRE_ACCESSION_IDS),\
+           ## For Broad domains:
+           expand('results/coverage_broad/K562/epimarks/{accession_id}.tab', accession_id=K562_EPIMARKS_ACCESSION_IDS),\  
+           expand('results/coverage_broad/hela/epimarks/{accession_id}.tab', accession_id=HELA_EPIMARKS_ACCESSION_IDS),\
+           # Get control lists:
+           ## For TF-like marks:
+           ### For K562:
+           expand('results/control_list_tf/K562/tfactors/{accession_id}/control_list.txt', accession_id=K562_TFACTORS_ACCESSION_IDS), \
+           expand('results/control_list_tf/K562/dnase/{accession_id}/control_list.txt', accession_id=K562_DNASE_ACCESSION_IDS), \
+           expand('results/control_list_tf/K562/faire/{accession_id}/control_list.txt', accession_id=K562_FAIRE_ACCESSION_IDS), \
+           ### For hela:
+           expand('results/control_list_tf/hela/tfactors/{accession_id}/control_list.txt', accession_id=HELA_TFACTORS_ACCESSION_IDS), \
+           expand('results/control_list_tf/hela/dnase/{accession_id}/control_list.txt', accession_id=HELA_DNASE_ACCESSION_IDS), \
+           expand('results/control_list_tf/hela/faire/{accession_id}/control_list.txt', accession_id=HELA_FAIRE_ACCESSION_IDS), \
+           ## For Broad domains:
+           expand('results/control_list_broad/K562/epimarks/{accession_id}/control_list.txt', accession_id=K562_EPIMARKS_ACCESSION_IDS), \
+           expand('results/control_list_broad/hela/epimarks/{accession_id}/control_list.txt', accession_id=HELA_EPIMARKS_ACCESSION_IDS),\
+           # New control list:
+           expand("results/control_list_to_gtf/{strain}_{control_or_reference}_list.gtf", strain=["K562","hela"], control_or_reference=["control", "reference"]),\
+           # New things done after my holidays:
+           expand('results/control_list_to_gtf/{broad_or_tf}/{strain}/{experiment_type}/{accession_id}/{control_or_reference}.gtf', broad_or_tf=["tf"], strain=["hela"], experiment_type=["dnase"], accession_id=HELA_DNASE_ACCESSION_IDS, control_or_reference=["control","reference"]),\
+           #TSS plots
+           #K562
+           ##epimarks
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["K562"], mark=["epimarks"], accession_id=K562_EPIMARKS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ##tfactors
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["K562"], mark=["tfactors"], accession_id=K562_TFACTORS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ##dnase
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["K562"], mark=["dnase"], accession_id=K562_DNASE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ##faire
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["K562"], mark=["faire"], accession_id=K562_FAIRE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           #hela
+           ##epimarks
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["hela"], mark=["epimarks"], accession_id=HELA_EPIMARKS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ##tfactors
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["hela"], mark=["tfactors"], accession_id=HELA_TFACTORS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ##dnase
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["hela"], mark=["dnase"], accession_id=HELA_DNASE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ##faire
+           expand("results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}", strain=["hela"], mark=["faire"], accession_id=HELA_FAIRE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           #
+           # Merged tss plots
+           # K562
+           ## epimarks
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["K562"], mark=["epimarks"], accession_id=K562_EPIMARKS_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ## tfactors
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["K562"], mark=["tfactors"], accession_id=K562_TFACTORS_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ## dnase
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["K562"], mark=["dnase"], accession_id=K562_DNASE_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ## faire
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["K562"], mark=["faire"], accession_id=K562_FAIRE_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           # hela
+           ## epimarks
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["hela"], mark=["epimarks"], accession_id=HELA_EPIMARKS_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ## tfactors
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["hela"], mark=["tfactors"], accession_id=HELA_TFACTORS_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ## dnase
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["hela"], mark=["dnase"], accession_id=HELA_DNASE_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\
+           ## faire
+           expand("results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf", strain=["hela"], mark=["faire"], accession_id=HELA_FAIRE_ACCESSION_IDS, transform=["none"], upstream=["5000"], downstream=["5000"], window=["200"]),\   
+           # Lost command from old work
+           expand("results/tss_plot/{broad_or_tf}/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}", broad_or_tf=["tf"], strain=["hela"], mark=["dnase"], accession_id=HELA_DNASE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none","log2"])
+           # Merged tss plot
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["broad"], strain=["K562"], mark=["epimarks"], accession_id=K562_EPIMARKS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"]),\
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["tf"], strain=["K562"], mark=["tfactors"], accession_id=K562_TFACTORS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"]),\
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["tf"], strain=["K562"], mark=["faire"], accession_id=K562_FAIRE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"]),\
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["tf"], strain=["K562"], mark=["dnase"], accession_id=K562_DNASE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"]),\
+           # Merged tss plot
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["broad"], strain=["hela"], mark=["epimarks"], accession_id=HELA_EPIMARKS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"]),\
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["tf"], strain=["hela"], mark=["tfactors"], accession_id=HELA_TFACTORS_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"]),\
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["tf"], strain=["hela"], mark=["faire"], accession_id=HELA_FAIRE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"]),\
+           #expand("results/test_merge_tss_plot/{broad_or_tf}/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["tf"], strain=["hela"], mark=["dnase"], accession_id=HELA_DNASE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none"])#,\
+           # transform log2 doesnot work for previous rule because it is not implemented in the R script.(coverage matrix produced by tss_plot is raw values even if its plot is in log2.)
+           #expand("results/merge_tss_plot/{broad_or_tf}/{strain}/{mark}/{accession_id}/merged_tss_plot_transform_{transform}.pdf",  broad_or_tf=["tf"], strain=["hela"], mark=["dnase"], accession_id=HELA_DNASE_ACCESSION_IDS, control_or_reference=["control","reference"], transform=["none","log2"])
+    params: ppn="nodes=1:ppn=1"
+    message: "Workflow completed"
+
+# Get ChIP-seq data for better control selection
+include: "code/snakemake/rules/get_chipseq_data.py"
+include: "code/snakemake/rules/convert_prom_regions_txt_to_gtf.py"
+include: "code/snakemake/rules/coverage.py"
+include: "code/snakemake/rules/gtftoolkit_control_list.py"
+include: "code/snakemake/rules/gtftoolkit_tss_plot.py"
+include: "code/snakemake/rules/create_explicit_name.py"
+include: "code/snakemake/rules/control_list_for_jaime.py"
