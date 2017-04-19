@@ -1,0 +1,220 @@
+EXP_BEANPLOT=["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me3",\
+        "Hela_TANG2015_GSM1872888_PET_clusters_CTCF",\
+        "Hela_TANG2015_GSM1872889_PET_clusters_RNAPII",\
+        "Hela_TableS2_Kuznetsova_GB2016_POLII",\
+        "Hela_TableS2_Kuznetsova_GB2016_P300"]
+
+
+STRAIN_BEANPLOT=["K562"]*6+["Hela"]*4
+
+MARK_BEANPLOT=["RAD21", "POLR2A", "H3K27ac", "H3K4me1", "H3K4me2", "H3K4me3"]+["CTCF","RNAPII","POLII","P300"]
+
+FT_OR_BROAD_BEANPLOT=["ft", "ft", "broad", "broad","broad","broad"]+["ft"]*4
+
+rule beanplot_boxplot_ks_wilcoxon_tests_merge:
+    """
+    Create a beanplot containing every marks and strains.
+    """
+    input:  data_enhProm=expand("RESULTS/beanplot_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{exp}/data_eprom.txt", \
+                zip, ft_or_broad=FT_OR_BROAD_BEANPLOT, \
+                mark=MARK_BEANPLOT, \
+                strain=STRAIN_BEANPLOT, \
+                exp=EXP_BEANPLOT),\
+            data_control=expand("RESULTS/beanplot_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{exp}/data_control.txt", \
+                zip, ft_or_broad=FT_OR_BROAD_BEANPLOT, \
+                mark=MARK_BEANPLOT, \
+                strain=STRAIN_BEANPLOT, \
+                exp=EXP_BEANPLOT)
+    output: beanplot="RESULTS/beanplot_chiapet_scores/merged_beanplot.pdf",\
+            beanplot_median="RESULTS/beanplot_chiapet_scores/merged_beanplot_median.pdf",\
+            boxplot="RESULTS/beanplot_chiapet_scores/merged_boxplot.pdf",\
+            #not supported with R3.2 updatate: gridExtra missing...
+            #tests="RESULTS/beanplot_chiapet_scores/tests.pdf",\
+            exp_data_list="RESULTS/beanplot_chiapet_scores/exp_data_list.txt"
+    threads: 1
+    run:
+        R("""
+        library(beanplot)
+
+        data_eprom <- "{input.data_enhProm}"
+        data_control <- "{input.data_control}"
+        
+        exp_data_eprom <- unlist(strsplit(data_eprom, split=" "))
+        exp_data_control <- unlist(strsplit(data_control, split=" "))
+        
+        exp_data_eprom_length <- length(exp_data_eprom)
+        exp_data_control_length <- length(exp_data_control)
+
+        if (exp_data_eprom_length != exp_data_control_length)
+        {{
+            stop("epromoters and control set have different length!")
+        }}
+
+        data_list <- list()
+        wilcoxon_pval <- double(exp_data_eprom_length)
+        ks_pval <- double(exp_data_eprom_length)
+
+        for (i in seq(1:exp_data_eprom_length))
+        {{
+            tmp <- read.table(exp_data_eprom[i])
+            data_list[[exp_data_eprom[i]]] <- tmp$sum
+            tmp <- read.table(exp_data_control[i])
+            data_list[[exp_data_control[i]]] <- tmp$sum
+            wilcoxon_pval[i] <- wilcox.test(
+                data_list[[exp_data_eprom[i]]], 
+                data_list[[exp_data_control[i]]], 
+                alternative = "greater", 
+                paired=FALSE)$p.value
+            ks_pval[i] <- ks.test(
+                data_list[[exp_data_eprom[i]]],
+                data_list[[exp_data_control[i]]],
+                alternative = "greater")$p.value
+        }}
+
+        #lapply(data_list, write, "{output.exp_data_list}", append=TRUE, ncolumns=1000)
+        dput(data_list,file="{output.exp_data_list}")
+
+        pdf('{output.beanplot}', width=14)
+        beanplot(
+            data_list, 
+            side="both", 
+            bw="nrd0",
+            main="Distribution of ChIA-PET signal\nfor e-promoters and control set\ninvolved in prom-prom interactions",
+            xlab="experiment (left part: epromoter, right part: control)",
+            ylab="Number of reads linking eprom/control to promoters",
+            names=c("K562 RAD21","K562 POLR2A","K562 H3K27ac","K562 H3K4me1","K562 H3K4me2","K562 H3K4me3","Hela CTCF","Hela RNAPII","Hela PolII","Hela P300")
+            )
+        out <- dev.off()
+
+        pdf('{output.beanplot_median}', width=14)
+        beanplot(
+            data_list, 
+            side="both", 
+            bw="nrd0",
+            main="Distribution of ChIA-PET signal\nfor e-promoters and control set\ninvolved in prom-prom interactions",
+            xlab="experiment (left part: epromoter, right part: control)",
+            ylab="Number of reads linking eprom/control to promoters",
+            names=c("K562 RAD21","K562 POLR2A","K562 H3K27ac","K562 H3K4me1","K562 H3K4me2","K562 H3K4me3","Hela CTCF","Hela RNAPII","Hela PolII","Hela P300"),
+            overallline="median"
+            )
+        out <- dev.off()
+
+        pdf('{output.boxplot}')
+        # c(bottom, left, top, right)
+        par(mar = c(10, 4, 4, 1) + 0.2)
+        bp <- boxplot(
+            data_list,
+            main="Distribution of ChIA-PET signal\nfor e-promoters and control set\ninvolved in prom-prom interactions",
+            # Find a way to move down the xlab so it does not fall inside custom rotated labels
+            #xlab="experiment",
+            xlab=NULL,
+            ylab="Number of reads linking eprom/control to promoters",
+            names=c("K562 RAD21 eprom","K562 RAD21 control","K562 POLR2A eprom","K562 POLR2A control","K562 H3K27ac eprom","K562 H3K27ac control","K562 H3K4me1 eprom","K562 H3K4me1 control","K562 H3K4me2 eprom","K562 H3K4me2 control","K562 H3K4me3 eprom","K562 H3K4me3 control","Hela CTCF eprom","Hela CTCF control","Hela RNAPII eprom","Hela RNAPII control","Hela PolII eprom","Hela PolII control","Hela P300 eprom", "Hela P300 control"),
+            las=2)
+
+        print(bp)
+        
+        exp <- c("K562 RAD21","K562 POLR2A", "K562 H3K27ac","K562 H3K4me1","K562 H3K4me2", "K562 H3K4me3", "Hela CTCF", "Hela RNAPII", "Hela PolII", "Hela P300") 
+        #legend(
+        #    "topright",
+        #    legend=paste(
+        #        exp,"\t", 
+        #        round(wilcoxon_pval,digits=3), "\t", 
+        #        round(ks_pval,digits=3)))
+        #legend("topleft", legend=paste(exp,c(ks_pval)))
+        
+        out <- dev.off()
+      
+        table_pval <- cbind(
+            exp, 
+            round(wilcoxon_pval,digits=3),
+            round(ks_pval,digits=3))
+
+        library(lattice)
+        library(grid)
+        #library(gridExtra)
+
+        #pdf("output.tests", width=4, height=3)
+        #colnames(table_pval) <- c("Experiment", "Wilcoxon p-val", "KS p-val")
+        #tt <- ttheme_default(colhead=list(fg_params = list(parse=TRUE)))
+        #grid.table(table_pval, theme=tt)
+        #out <- dev.off()
+
+        """)
+
+
+
+
+rule beanplot_chiapet_scores_for_promoter_and_enhprom:
+    """
+    Created: 2016-02-19 12h01
+    TODO: continue this rule to produce salva's request.
+    """
+    input:  interacting_enhProm="RESULTS/extract_chiapet_scores/{ft_or_broad}/{mark}_{strain}/active/{exp}_enhProm_in_interacting_promoters.txt",\
+            interacting_control="RESULTS/extract_chiapet_scores/{ft_or_broad}/{mark}_{strain}/inactive/{exp}_enhProm_in_interacting_promoters.txt"
+    output: beanplot="RESULTS/beanplot_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{exp}/beanplot.pdf",\
+            data_enhProm="RESULTS/beanplot_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{exp}/data_eprom.txt",\
+            data_control="RESULTS/beanplot_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{exp}/data_control.txt"
+    threads: 1
+    run:
+        R("""
+        library(beanplot)
+        
+        interacting_enhProm <- "{input.interacting_enhProm}"
+        interacting_control <- "{input.interacting_control}"
+
+        # Test files:
+        #interacting_enhProm <- "RESULTS/extract_chiapet_scores/ft/POLII_Hela/active/Hela_TableS2_Kuznetsova_GB2016_POLII_enhProm_in_interacting_promoters.txt"
+        #interacting_control <- "RESULTS/extract_chiapet_scores/ft/POLII_Hela/inactive/Hela_TableS2_Kuznetsova_GB2016_POLII_enhProm_in_interacting_promoters.txt"
+        
+        data_interacting_enhProm <- read.table(interacting_enhProm, header=TRUE, stringsAsFactors=FALSE, sep='\t')
+        data_interacting_control <- read.table(interacting_control, header=TRUE, stringsAsFactors=FALSE, sep='\t')
+        
+        data_interacting_enhProm_iab_counts <- data_interacting_enhProm[,c('pair_name','IAB','e.promoter_coord_and_gene_id')]
+        data_interacting_control_iab_counts <- data_interacting_control[,c('pair_name','IAB','e.promoter_coord_and_gene_id')]
+        
+        data_interacting_enhProm_iab_counts <- unique(data_interacting_enhProm_iab_counts)
+        data_interacting_control_iab_counts <- unique(data_interacting_control_iab_counts)
+        
+        # Some ID are shared between multiple possibles epromoters:
+        # 342 ID_159261  10       chr9:136214868-136215118_RPL7A
+        # 343 ID_159261  10       chr9:136214961-136215211_MED22
+        # Need improvement here
+        
+        list_eprom <- unique(data_interacting_enhProm_iab_counts$e.promoter_coord_and_gene_id)
+        list_control <- unique(data_interacting_control_iab_counts$e.promoter_coord_and_gene_id)
+        
+        # Removing the line corresponding to the header for the second part of the data approximately at mid file.
+        list_eprom <- list_eprom[!list_eprom=="e-promoter_coord_and_gene_id"]
+        list_control <- list_control[!list_control=="e-promoter_coord_and_gene_id"]
+        
+        sum_count_eprom <- data.frame(eprom=list_eprom, sum=as.numeric(NA),row.names=list_eprom)
+        sum_count_control <- data.frame(eprom=list_control, sum=as.numeric(NA),row.names=list_control)
+        
+        sum_count_eprom$eprom <- NULL
+        sum_count_control$eprom <- NULL
+
+        for (eprom in list_eprom)
+        {{
+            sum_count_eprom[eprom,'sum'] <- sum(as.numeric(data_interacting_enhProm_iab_counts[data_interacting_enhProm_iab_counts$e.promoter_coord_and_gene_id == eprom, 'IAB']))
+        }}
+        
+        for (eprom in list_control)
+        {{
+            sum_count_control[eprom,'sum'] <- sum(as.numeric(data_interacting_control_iab_counts[data_interacting_control_iab_counts$e.promoter_coord_and_gene_id == eprom, 'IAB']))
+        }}
+        
+        write.table(x=sum_count_eprom, file="{output.data_enhProm}")
+        write.table(x=sum_count_control, file="{output.data_control}")
+
+        pdf('{output.beanplot}')
+        beanplot(sum_count_eprom$sum, sum_count_control$sum, side="both", bw="nrd0")
+        out <- dev.off()
+        """)
+
+

@@ -1,0 +1,415 @@
+rule test_workdir:
+	"""
+	Created: 2016-05-16 15h42
+	Trying to figure out how the "worklow" wildcard behave.
+	"""
+	shell:"""
+	echo "workflow.workdir: {workflow.workdir}" > test_workdir
+	echo "workflow.basedir: {workflow.basedir}" >> test_workdir
+        echo "workflow: {workflow}" >> test_workdir
+        echo "workflow.snakefile: {workflow.snakefile}" >> test_workdir
+	"""
+
+rule install_latex:
+	"""
+	"""
+	output: bin=expand("soft/texlive/bin/x86_64-linux/{bin}", bin=["pdflatex", "bibtex", "pdfcrop"])
+	shell:"""
+	cd soft
+	wget http://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz
+	tar -xzf install-tl-unx.tar.gz
+	# we use * because the directory is suffixed with a timestamp from the release date.
+	#cd install-tl-*
+	./install-tl  -portable
+	# Change texdir to ../texlive
+	
+	"""
+
+rule install_miniconda:
+	"""
+	Created: 2016-05-16 14h54
+	
+	-b, batch mode
+	-p, installation prefix/path
+	-f, force installation even if prefix -p already exists (which is the always the case because snakemake create the output path)
+	"""
+	output:	conda="soft/miniconda/bin/conda"
+	resources: conda_token=1	
+	shell:"""
+	cd soft	
+	rm -f Miniconda3-4.0.5-Linux-x86_64.sh
+	wget http://repo.continuum.io/miniconda/Miniconda3-4.0.5-Linux-x86_64.sh
+	bash Miniconda3-4.0.5-Linux-x86_64.sh -b -f -p miniconda
+        rm -f Miniconda3-4.0.5-Linux-x86_64.sh
+	
+	## Adding channels
+	cd miniconda/bin
+	./conda config --add channels r
+        ./conda config --add channels bioconda
+	"""
+
+rule install_python2_env:
+	"""
+	"""
+	input: conda="soft/miniconda/bin/conda"
+	output: py27=expand("soft/miniconda/envs/py27/bin/{bin}",bin=["python2.7","pip","computeMatrix","bamCoverage","bamCompare","plotProfile", "plotHeatmap","macs","macs2","ceas","pybedtools"])
+	resources: conda_token=1
+	shell:"""
+	{input.conda} update conda --yes
+        
+	# Removing the environment directory, automatically created by Snakemake, to please Conda.
+        rm -rf soft/miniconda/envs/py27
+	{input.conda} create -n py27 python=2.7 --yes
+	
+        {input.conda} install -n py27 --yes -c bioconda deeptools=2.2.4 
+        {input.conda} install -n py27 --yes -c bioconda pysam=0.9.1 
+	{input.conda} install -n py27 --yes -c auto macs=1.4.3	
+	{input.conda} install -n py27 --yes -c bioconda macs2=2.1.1
+	{input.conda} install -n py27 --yes -c bioconda ceas=1.0.2
+	{input.conda} install -n py27 --yes -c bioconda pybedtools=0.7.8
+	{input.conda} install -n py27 --yes -c anaconda biopython=1.67
+
+	# Snakemake is not happy if the outputs are not touched
+        touch {output}
+	"""
+
+rule install_danpos_env:
+	"""
+	Some packages have to be downgraded to install rpy2 in python2.7 environment so I create another one for Danpos...
+	"""
+	input: conda="soft/miniconda/bin/conda"
+	output: py27_danpos=expand("soft/miniconda/envs/danpos/bin/{bin}", bin=["python2.7","python"]) 
+	resources: conda_token=1
+	shell:"""
+	{input.conda} update conda --yes
+	rm -rf soft/miniconda/envs/danpos
+
+        {input.conda} create -n danpos python=2.7 --yes
+	# No R version available below v3. Let's hope it is ok with default version.
+	#{input.conda} install -n danpos --yes -c r r=2.9.1 
+	{input.conda} install -n danpos --yes -c r rpy2=2.8.1 
+	{input.conda} install -n danpos --yes -c anaconda numpy=1.11.0 
+	
+	touch {output}
+	"""
+
+rule install_samtools0_1_7:
+	"""
+	Created: 2016-07-22 14h59 - Written retrospectively months after manual install. Used for Danpos.
+	"""
+	output: "soft/samtools-0.1.7a/samtools"
+	shell:"""
+	cd soft
+	wget --no-clobber https://sourceforge.net/projects/samtools/files/samtools/0.1.7/samtools-0.1.7a.tar.bz2
+	tar xfvj samtools-0.1.7a.tar.bz2
+	cd samtools-0.1.7a
+	make
+	"""
+
+rule install_danpos:
+	"""
+	Created: 2016-07-22 16h45 - Written retrospectively months after manual install.
+	"""
+	input: samtools="soft/samtools-0.1.7a/samtools"
+	output: danpos="soft/danpos-2.2.2/danpos.py"
+	shell:"""
+	cd soft
+	wget --no-clobber http://lilab.research.bcm.edu/dldcc-web/lilab/kaifuc/danpos/release/danpos-2.2.2.tgz
+	tar -xvzf danpos-2.2.2.tgz
+	# Making Snakemake happy touching the output.
+	cd ../
+	touch {output.danpos}
+	"""
+
+rule install_python3_env:
+        """
+	Note for the future: conda create and then install should be splitted into two different rules because as we touch the bins in output, Snakemake then want to rerun every step relying to those bins each time we want to add a package here. Using snakemake and conda_token is a better approach.
+        """
+        input: conda="soft/miniconda/bin/conda"
+        output: py35=expand("soft/miniconda/envs/py35/bin/{bin}", bin=["python3.5", "snakemake", "R","Rscript"])
+	resources: conda_token=1
+        shell:"""
+        {input.conda} update conda --yes
+	rm -rf soft/miniconda/envs/py35
+	
+        {input.conda} create -n py35 python=3.5 --yes
+	{input.conda} install -n py35 --yes snakemake R r-beanplot r-rcolorbrewer r-docopt r-reshape r-gridextra rpy2
+        
+	touch {output}
+	"""
+
+rule install_picard:
+    input:
+        conda="soft/miniconda/bin/conda",
+        py35="soft/miniconda/envs/py35/bin/python3.5"
+    output: picard="soft/miniconda/envs/py35/bin/picard"
+    resources: conda_token=1
+    shell:"""
+    {input.conda} install -n py35 -c bioconda picard
+    touch {output}
+    """
+
+rule install_multiQC:
+    input:
+        conda="soft/miniconda/bin/conda",
+        py35="soft/miniconda/envs/py35/bin/python3.5"
+    output: multiqc="soft/miniconda/envs/py35/bin/multiqc"
+    resources: conda_token=1
+    shell:"""
+    {input.conda} install -n py35 -c bioconda multiqc
+    touch {output}
+    """
+
+
+rule install_gtftoolkit:
+        """
+        A rule need to be created to install gtftoolkit:
+        git clone Denis' rep
+        git clone ssh://gituser@139.124.66.4:22/data/home/gituser/gtftoolkit
+	Use the pip in the python2.7 conda environment to do the installation. I had to install pybedtools too for coverage.
+        """
+	input:	pip="soft/miniconda/envs/py27/bin/pip",\
+		pybedtools="soft/miniconda/envs/py27/bin/pybedtools",\
+		setup="soft/gtftoolkit/setup.py"
+	output: gtftoolkit="soft/miniconda/envs/py27/bin/gtftoolkit"
+	shell:"""
+	{input.pip} install -e soft/gtftoolkit/
+	"""
+
+
+rule install_sra_toolkit:
+	"""
+	Created: 2016-05-10 17h07
+	"""
+	output: "soft/sratoolkit.2.6.2-centos_linux64/bin/fastq-dump"
+	shell:"""
+	cd soft
+	wget http://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/2.6.2/sratoolkit.2.6.2-centos_linux64.tar.gz
+	tar -xzf sratoolkit.2.6.2-centos_linux64.tar.gz
+	rm -f sratoolkit.2.6.2-centos_linux64.tar.gz
+	"""
+
+rule install_bowtie2:
+	"""
+	Created: 2016-05-11 14h47
+	"""
+	output: "soft/bowtie2-2.2.9/bowtie2"
+	shell:"""
+	cd soft
+	wget http://downloads.sourceforge.net/project/bowtie-bio/bowtie2/2.2.9/bowtie2-2.2.9-linux-x86_64.zip
+	unzip bowtie2-2.2.9-linux-x86_64.zip
+	rm -f bowtie2-2.2.9-linux-x86_64.zip
+	"""
+
+rule install_fastx_toolkit:
+	"""
+	Created: 2016-07-12 18h02 - Installed to trim fastq to test if it changes fragment size distribution for PSK-SC-KO.
+	"""
+	output: expand("soft/fastx-toolkit-0.0.13/{bin}", bin=['fasta_clipping_histogram.pl','fastq_masker','fastq_quality_filter','fastx_artifacts_filter','fastx_collapser','fastx_quality_stats','fastx_trimmer','fasta_formatter','fastq_quality_boxplot_graph.sh','fastq_quality_trimmer','fastx_barcode_splitter.pl','fastx_nucleotide_distribution_graph.sh','fastx_renamer','fastx_uncollapser','fasta_nucleotide_changer','fastq_quality_converter','fastq_to_fasta','fastx_clipper','fastx_nucleotide_distribution_line_graph.sh','fastx_reverse_complement'])
+	shell:"""
+	mkdir --parents soft/fastx-toolkit-0.0.13
+	cd soft/fastx-toolkit-0.0.13
+	wget http://hannonlab.cshl.edu/fastx_toolkit/fastx_toolkit_0.0.13_binaries_Linux_2.6_amd64.tar.bz2
+	tar -xjf fastx_toolkit_0.0.13_binaries_Linux_2.6_amd64.tar.bz2
+	mv bin/* .
+	rm -rf bin fastx_toolkit_0.0.13_binaries_Linux_2.6_amd64.tar.bz2
+	"""
+
+rule install_fastqc:
+	"""
+	Created: 2016-07-13 15h48
+	"""
+	output:"soft/FastQC/fastqc"
+	shell:"""
+	cd soft
+	wget http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip
+	unzip fastqc_v0.11.5.zip
+	chmod u+x FastQC/fastqc
+	"""
+
+rule install_bedtools:
+        """
+        Created: 2016-04-23 11h31
+        """
+        output:"soft/bedtools2/bin/bedtools"
+        shell:"""
+        cd soft
+        wget https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz
+        tar -zxvf bedtools-2.25.0.tar.gz
+        cd bedtools2
+        make
+        """
+
+rule install_samtools1:
+        """
+        """
+        output: samtools="soft/samtools-1.3.1/samtools"
+        shell:"""
+        cd soft
+        wget https://github.com/samtools/samtools/releases/download/1.3.1/samtools-1.3.1.tar.bz2
+        tar xvf samtools-1.3.1.tar.bz2
+        cd samtools-1.3.1
+        make
+        #make prefix=. install
+        """
+
+rule install_sickle:
+	"""
+	"""
+	output:"soft/sickle/sickle"
+	shell:"""
+	cd soft
+	git clone https://github.com/najoshi/sickle.git
+	cd sickle
+	make
+	"""
+
+rule install_gsl_2_1:
+	"""
+	Unfinished, maybe version 1.15 is better for gfold.
+	"""
+	output:""
+	shell:"""
+	cd soft
+	wget ftp://ftp.gnu.org/gnu/gsl/gsl-2.1.tar.gz
+	tar xzf gsl-2.1.tar.gz
+	cd gsl-2.1
+	./configure --prefix=/gpfs/tagc/home/gcharbonnier/grenoble_project/part2/soft/gsl-2.1_make
+	make
+	"""
+
+rule install_gsl_1_15:
+	"""
+	NOT TESTED
+	Note: check if Snakemake substitute output paths with absolute paths. If it does that, then defining and using WDIR in the prefix is useless.
+	"""
+	output: prefix="soft/gsl-1.15_make", lib="soft/gsl-1.15_make/lib", include="soft/gsl-1.15_make/include"
+	shell:"""
+	WDIR=`pwd`
+	cd soft
+	wget ftp://ftp.gnu.org/gnu/gsl/gsl-1.15.tar.gz
+	tar xzf gsl-1.15.tar.gz
+        
+	#./configure --prefix=/gpfs/tagc/home/gcharbonnier/grenoble_project/part2/soft/gsl-1.15_make
+	./configure --prefix=$WDIR/{output.prefix}
+	make
+	make install
+	"""
+
+
+rule install_gfold:
+	"""
+	NOT TESTED
+	"""
+	input: lib="soft/gsl-1.15_make/lib", include="soft/gsl-1.15_make/include"
+	output: gfold="soft/gfold.V1.1.4/gfold"
+	shell:"""
+	WDIR=`pwd`
+	cd soft
+	git clone https://bitbucket.org/feeldead/gfold/downloads/gfold.V1.1.4.tar.gz
+	tar xzf gfold.V1.1.4.tar.gz
+	
+	# The readme tells to export this before using make but it still does not find the lib so the alternative is to use the g++ command below.
+	#export CXXFLAGS="-g -O3 -I/gpfs/tagc/home/gcharbonnier/grenoble_project/part2/soft/gsl-1.15_make/include -L/gpfs/tagc/home/gcharbonnier/grenoble_project/part2/soft/gsl-1.15_make/lib"
+	# Next line maybe needed in the bashrc to run the tool.
+	#export LD_LIBRARY_PATH="/gpfs/tagc/home/gcharbonnier/grenoble_project/part2/soft/gsl-1.15_make/lib:"$LD_LIBRARY_PATH
+	# make
+
+	g++ -O3 -Wall -g main.cc -o gfold -lgsl -lgslcblas -I$WDIR/soft/gsl-1.15_make/include -L$WDIR/soft/gsl-1.15_make/lib
+	"""
+
+rule gfold_count:
+	"""
+	Created: 2016-07-19 17h05
+	NOT TESTED
+	Gtf files have to be prepared. Currently I took some that were in my annotation directory but I may need to refine them for my purpose, like defining "TSS genes" and not true genes.
+	"""
+	input:	bam="data/processed/bam/{index}/{exp}/{sample}.bam",\
+		gtf="annotation/input/{index}{gtf}.gtf",\
+		gfold="soft/gfold.V1.1.4/gfold",\
+		lib="soft/gsl-1.15_make/lib",\
+		samtools="soft/samtools-1.3.1/samtools"
+	output:	cnt="data/processed/gfold/count/{index, mm9}{gtf, ''|TSSu2000d2000}/{exp}/{sample}.read_cnt"
+	shell:"""
+	# Not tested but I think I need this library each time I want to use gfold.
+	WDIR=`pwd`
+	#export LD_LIBRARY_PATH="$WDIR/{input.lib}:"$LD_LIBRARY_PATH
+	
+	export LD_LIBRARY_PATH=${{WDIR}}/{input.lib}${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}
+
+	{input.samtools} view {input.bam} | {input.gfold} count -ann {input.gtf} -tag stdin -o {output.cnt}
+	"""	
+
+rule gfold_diff:
+	"""
+	Created: 2016-07-19 18h00
+	It seems that gfold needs to have both samples in the same directory.
+	"""
+	input:	cnt1="data/processed/gfold/count/{index}/{exp}/{sample1}.read_cnt",\
+		cnt2="data/processed/gfold/count/{index}/{exp}/{sample2}.read_cnt",\
+                gfold="soft/gfold.V1.1.4/gfold",\
+                lib="soft/gsl-1.15_make/lib"
+	output:	diff="data/processed/gfold/diff/{index}/{exp}/{sample1}_VS_{sample2}.diff"
+	shell:"""
+	# Not tested but I think I need this library each time I want to use gfold.
+	WDIR=`pwd`
+	#export LD_LIBRARY_PATH="$WDIR/{input.lib}:"$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=${{WDIR}}/{input.lib}${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}
+
+	{input.gfold} diff \
+	-s1 data/processed/gfold/count/{wildcards.index}/{wildcards.exp}/{wildcards.sample1}\
+	-s2 data/processed/gfold/count/{wildcards.index}/{wildcards.exp}/{wildcards.sample2}\
+	-suf .read_cnt -o {output.diff}
+	
+	"""
+
+rule install_vim:
+	"""
+	http://blog.belgoat.com/installing-linux-software-without-root-privileges-vim-ycm/
+	"""
+	input: python="soft/miniconda/envs/py27/bin/python"
+	shell:"""
+	WDIR=`pwd`
+	cd soft
+	wget ftp://ftp.vim.org/pub/vim/unix/vim-7.4.tar.bz2
+	tar xvf vim-7.4.tar.bz2
+	
+	./configure --prefix=$WDIR/vim74 --with-features=huge --enable-rubyinterp --enable-pythoninterp --with-python-config-dir=$WDIR/{input.python} --enable-perlinterp --enable-gui=gtk2 --enable-cscope --enable-luainterp
+	
+	
+	#./configure --prefix=~/vim74 \
+	#            --with-features=huge \
+	#            --enable-rubyinterp \
+	#            --enable-pythoninterp \
+	#            --with-python-config-dir=/usr/lib/python2.6/config \
+	#            --enable-perlinterp \
+	#            --enable-gui=gtk2 --enable-cscope \
+	#            --enable-luainterp
+	make
+	make install
+	"""
+
+
+rule install_vundle_YCM:
+	shell:"""
+	mkdir ~/.vim
+cd ~/.vim
+git clone https://github.com/gmarik/vundle.git ~/.vim/bundle/vundle
+echo "set nocompatible" >> ~/.vimrc
+echo "filetype off" >> ~/.vimrc
+echo "set rtp+=~/.vim/bundle/vundle/" >> ~/.vimrc
+echo "call vundle#rc()" >> ~/.vimrc
+echo "Bundle 'gmarik/vundle'" >> ~/.vimrc
+echo "Bundle 'Valloric/YouCompleteMe'" >> ~/.vimrc
+echo "filetype plugin indent on" >> ~/.vimrc	
+	"""
+
+rule install_cmake:
+	"""
+	Needed to install YCM
+	"""
+	shell:"""
+	http://www.cmake.org/cmake/resources/software.html
+	
+	https://cmake.org/files/v3.5/cmake-3.5.1-Linux-x86_64.tar.gz
+	"""

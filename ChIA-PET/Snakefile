@@ -1,0 +1,218 @@
+import glob
+import os
+from snakemake.utils import R
+
+
+##--------------------------------------------------------------------##
+## Shell command to run the snakemake
+##--------------------------------------------------------------------##
+#Sorting reads in STAR _reads consumes a lot of memory. Please adapt it to your needs.
+
+##--------------------------------------------------------------------##
+## Shell command to run the snakemake
+##--------------------------------------------------------------------##
+"""
+PATH=/gpfs/tagc/home/gcharbonnier/reprod_salva/soft/miniconda/envs/py27/bin:/gpfs/tagc/home/gcharbonnier/reprod_salva/soft/miniconda/envs/py35/bin:/gpfs/tagc/home/gcharbonnier/repod_salva/gtftoolkit/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin
+
+snakemake -c "qsub -V -q tagc -o LOG/QSUB -e LOG/QSUB -l nodes=1:ppn={threads}" -j
+
+# To update the rulegraph
+snakemake -s snakemake.py -j -np --rulegraph | dot -Tpdf -o "RESULTS/rulegraph.pdf"
+"""
+
+# Random number generator
+SEED="123"
+
+# The CHIA-PET experiments
+#EXP, = glob_wildcards("DATA/{id}.tsv")
+EXP= ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac",\
+#K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1
+#K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2
+#"K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me3",\
+"K562_MERGE_BALL_TALL_SNYD_CHIA_K4me3",\
+"K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A",\
+"K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21"]
+
+#print(EXP)
+# Conditions:
+COND= ['control', 'enh-prom-k562']
+
+##------------------------------------------##
+## Rule / targets
+##------------------------------------------##
+
+#ruleorder: filter_chiapet_interaction_on_len > filter_chiapet_interaction_on_nb_count
+
+# Localrules should contain the name of very short rules that could flood qsub and generate Invalid credential error if launched on a cluster. 
+localrules: compute_proba_prom_prom_modifGC, select_chiapet_prom_prom_interaction, filter_infile_for_gtftoolkit_control_list, beanplot_merge
+
+
+FT_OR_BROAD_INTERSECT_STATS_MERGE=["ft"]*8 + ["broad"]*8 + ["ft"]*4
+
+MARK_INTERSECT_STATS_MERGE=["CTCF"]*2 + ["RNAPII"]*2 + ["POLII"]*2 + ["P300"]*2 + ["H3K27ac"]*2 + ["H3K4me1"]*2 + ["H3K4me2"]*2 + ["H3K4me3"]*2 + ["POLR2A"]*2 + ["RAD21"]*2
+
+STRAIN_INTERSECT_STATS_MERGE=["Hela"]*8 + ["K562"]*12
+
+COND_INTERSECT_STATS_MERGE=["active","inactive"]*10
+
+EXP_INTERSECT_STATS_MERGE=\
+        ["Hela_TANG2015_GSM1872888_PET_clusters_CTCF"]*2 +\
+        ["Hela_TANG2015_GSM1872889_PET_clusters_RNAPII"]*2 +\
+        ["Hela_TableS2_Kuznetsova_GB2016_POLII"]*2 +\
+        ["Hela_TableS2_Kuznetsova_GB2016_P300"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me3"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21"]*2
+
+FT_BROAD_INTERSECT_STATS_MERGE=["ft"]
+
+MARK_INTERSECT_STATS_MERGE=["CTCF"]*2
+STRAIN_INTERSECT_STATS_MERGE=["Hela"]*2
+COND_INTERSECT_STATS_MERGE=["active","inactive"]*2
+EXP_INTERSECT_STATS_MERGE=["Hela_TANG2015_GSM1872888_PET_clusters_CTCF"]*2
+
+
+EXP_BEANPLOT=["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2",\
+        "K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me3",\
+        "Hela_TANG2015_GSM1872888_PET_clusters_CTCF",\
+        "Hela_TANG2015_GSM1872889_PET_clusters_RNAPII",\
+        "Hela_TableS2_Kuznetsova_GB2016_POLII",\
+        "Hela_TableS2_Kuznetsova_GB2016_P300"]
+
+
+STRAIN_BEANPLOT=["K562"]*6+["Hela"]*4
+
+MARK_BEANPLOT=["RAD21", "POLR2A", "H3K27ac", "H3K4me1", "H3K4me2", "H3K4me3"]+["CTCF","RNAPII","POLII","P300"]
+
+FT_OR_BROAD_BEANPLOT=["ft", "ft", "broad", "broad","broad","broad"]+["ft"]*4
+
+
+rule final:
+    input:  expand("RESULTS/extract_chiapet_scores_all_prom/{ft_or_broad}/{mark}_{strain}/{exp}_prom_in_interacting_promoters.txt", zip, ft_or_broad=FT_OR_BROAD_BEANPLOT, mark=MARK_BEANPLOT, strain=STRAIN_BEANPLOT, exp=EXP_BEANPLOT),\
+            #"DATA/K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2.tsv",\
+            #expand("RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_interacting_promoters.bed", ft_or_broad=["broad"], mark=["H3K4me1"], strain=["K562"], cond=["active"], exp=["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1"]), \
+            ####
+            "RESULTS/PROM_PROM_GC/ft/CTCF_Hela/active/Hela_TANG2015_GSM1872888_PET_clusters_CTCF_interacting_promoters.bed",\
+            "DATA/peaks/merge/peaks_Hela_CTCF.bed",\
+            "DATA/processed/capstarrseq_ln_names/capstarrseq_active_Hela.bed",\
+            #
+            "RESULTS/bedtools_intersect_merge/peak_prom_chiapet/ft/CTCF_Hela/active/Hela_TANG2015_GSM1872888_PET_clusters_CTCF.bed",\
+            #expand("RESULTS/bedtools_intersect_merge/peak_prom_chiapet/{ft_or_broad}/{mark}_{strain}/{cond}_{exp}.bed", zip, \
+            #    ft_or_broad=FT_OR_BROAD_INTERSECT_STATS_MERGE,\
+            #    mark=MARK_INTERSECT_STATS_MERGE,\
+            #    strain=STRAIN_INTERSECT_STATS_MERGE,\
+            #    cond=COND_INTERSECT_STATS_MERGE,\
+            #    exp=EXP_INTERSECT_STATS_MERGE),\
+            "RESULTS/intersect_stats_merge/wc_-l.txt",\
+            "RESULTS/intersect_stats_merge/table.tsv",\
+            # Not working since gridExtra not supported in R3.2:
+            #"RESULTS/intersect_phyper_merge/table.pdf",\
+            #"DATA/peaks/merge/peaks_Hela_P300.bed",\
+            #expand("RESULTS/extract_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_enhProm_in_interacting_promoters.txt", \
+            #    zip, ft_or_broad=["ft", "ft", "broad", "broad"]*2+["ft"]*8, \
+            #    mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me3"]*2+["CTCF","RNAPII","POLII","P300"]*2, \
+            #    strain=["K562"]*8+["Hela"]*8, \
+            #    cond=["active"]*4+["inactive"]*4+["active"]*4+["inactive"]*4, \
+            #    exp=["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21","K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac","K562_MERGE_BALL_TALL_SNYD_CHIA_K4me3"]*2+["Hela_TANG2015_GSM1872888_PET_clusters_CTCF", "Hela_TANG2015_GSM1872889_PET_clusters_RNAPII", "Hela_TableS2_Kuznetsova_GB2016_POLII", "Hela_TableS2_Kuznetsova_GB2016_P300"]*2),\
+            # May not be mandatory as final input:
+            #expand("RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_enhProm_in_interacting_promoters.bed", \
+            #    zip, ft_or_broad=["ft", "ft", "broad", "broad"]*2, \
+            #    mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me3"]*2, \
+            #    strain=["K562"]*8, \
+            #    cond=["active"]*4+["inactive"]*4, \
+            #    exp=["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21","K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac","K562_MERGE_BALL_TALL_SNYD_CHIA_K4me3"]*2),\ 
+            # Not mandatory as final input:
+            #expand('RESULTS/coverage_ft/{mark}_{strain}.tab', zip,\
+            #mark=['POLR2A', 'RAD21']+['CTCF','POLII','P300'], \
+            #    strain=['K562']*2+['Hela']*3), \
+            "RESULTS/OUTPUT_GC/table_summary_stats.pdf",\
+            # Beanplots
+            "RESULTS/beanplot_chiapet_scores/merged_beanplot.pdf",\
+            #expand("RESULTS/beanplot_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{exp}/beanplot.pdf", \
+            #    zip, ft_or_broad=["ft", "ft", "broad", "broad"]+["ft"]*4, \
+            #    mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me3"]+["CTCF","RNAPII","POLII","P300"], \
+            #    strain=["K562"]*4+["Hela"]*4, \
+            #    exp=["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21","K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac","K562_MERGE_BALL_TALL_SNYD_CHIA_K4me3"]+["Hela_TANG2015_GSM1872888_PET_clusters_CTCF", "Hela_TANG2015_GSM1872889_PET_clusters_RNAPII", "Hela_TableS2_Kuznetsova_GB2016_POLII", "Hela_TableS2_Kuznetsova_GB2016_P300"]),\
+            ## Get coverage for histone marks
+            # Not mandatory as final input:
+            #expand('RESULTS/coverage_broad/{mark}_{strain}.tab', \
+            #mark=['H3K27ac', 'H3K4me3'], \
+            #strain=['K562']), \
+            #expand('RESULTS/control_list_{ft_or_broad}/{mark}_{strain}/control_list.txt', \
+            # May not be mandatory as final input:
+            #expand('RESULTS/transcript_id_to_bed/{ft_or_broad}/{mark}_{strain}/inactive.bed', \
+            #zip, ft_or_broad=["ft", "ft", "broad", "broad"], \
+            #mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me3"], \
+            #strain=["K562"]*4), \
+            "RESULTS/coverage_summary/coverage_summary.tsv", \
+            # Convert ChIAPET for visualization in IGV
+            expand("RESULTS/CHIAPET_TSV_TO_BED12/JUNCTIONS/{exp}_junctions.bed", exp=EXP),\
+            # Task 2016-02-23
+            #"RESULTS/intersect_phyper/table.tsv",\
+            # Denis preliminary work
+            #"RESULTS/ENH_PROM_AND_CTRL/control.tsv", \
+            #expand("RESULTS/STAT_ON_CHIAPET/{exp}.pdf", exp=EXP),\
+            #expand("RESULTS/FILTER_ON_CHIAPET/{exp}_fltr.txt", exp=EXP),\
+            #expand("RESULTS/PROM_PROM/{cond}-{exp}_fltr_pp_chiapet_overlap_prom.txt", exp=EXP, cond=COND), \
+            #expand("RESULTS/PROM_PROM/{cond}-{exp}_fltr_pp_chiapet_overlap_prom.stat", exp=EXP, cond=COND), \
+            #"RESULTS/OUTPUT/table_summary_stats.txt", \
+            #"RESULTS/OUTPUT/table_summary_stats.pdf",\
+            expand("DATA/processed/bigwigCompare/ratio_H3K27ac_H3K4me3_{strain}.bw", strain=["K562","Hela"]),\
+            expand("DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_{ratio_strain}_active_Eprom_in_{active_strain}.tab", ratio_strain=["K562","Hela"], active_strain=["common_Hela_K562_IP","Hela_specific","K562_specific"]),\
+            "RESULTS/boxplot_ratio/test1.pdf",\
+            "RESULTS/workflow/rulegraph/Snakefile.pdf"
+    message: "workflow completed"
+
+
+
+include: "code/snakemake/rules/install_softs.rules"
+include: "code/snakemake/rules/flowcharts.rules"
+
+include: "code/snakemake/rules/chiapet_tsv_to_bed12.rules"
+
+# Select controls and  active promoters in K562 replicates
+# The same number of control is taken relative to  active promoters  (change SEED if needed).
+include: "code/snakemake/rules/get_control_and_ep.rules"
+
+# Perform stats on CHIAPET
+include: "code/snakemake/rules/stats_on_chiapet.rules"
+
+# Perform filetring on CHIAPET (none at the moment)
+include: "code/snakemake/rules/filter_chiapet.rules"
+
+include: "code/snakemake/rules/filter_chiapet_kuznetsova_tang.rules"
+
+# Get promoter regions (-1000,1000)
+# from file containing -200, 50
+include: "code/snakemake/rules/get_prom.rules"
+
+
+# Select chiapet fragments whose both ends overlap a prom.
+include: "code/snakemake/rules/select_chiapet_prom_prom_interaction.rules"
+
+# Do enhProm have more prom-prom interaction than Control Prom 
+# Binomial test:
+include: "code/snakemake/rules/compute_proba_prom_prom.rules"
+
+# Make an output table
+include: "code/snakemake/rules/create_output.rules"
+include: "code/snakemake/rules/create_output_diagram.rules"
+
+# Get ChIP-seq data for better control selection
+include: "code/snakemake/rules/get_chipseq_data.rules"
+include: "code/snakemake/rules/convert_prom_regions_txt_to_gtf.rules"
+include: "code/snakemake/rules/coverage.rules"
+include: "code/snakemake/rules/gtftoolkit_control_list.rules"
+
+# Task 2016-02-23
+include: "code/snakemake/rules/bedtools_intersect.rules"
+include: "code/snakemake/rules/get_chiapet_data.rules"
+include: "code/snakemake/rules/extract_chiapet_score_for_all_prom.rules"
+include: "code/snakemake/rules/beanplot_chiapet_scores_for_promoter_and_enhprom.rules"

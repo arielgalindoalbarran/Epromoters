@@ -1,0 +1,1 @@
+mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -e select RULES chiapetTsvToBed12.r starrseq_r_code from knownToRefSeq -N hg19 > knownToRefSeq_hg19.tsv

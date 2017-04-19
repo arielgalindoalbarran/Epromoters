@@ -1,0 +1,138 @@
+"""
+Rules to get control list from coverage files and salva's list of inactive promoters
+"""
+
+rule get_active_and_inactive_prom:
+    """
+    A rule to convert table containing inactive promoters into list to use with gtftoolkit control_list.
+
+    Usage: Used by rule gtftoolkit_control_list
+
+    sample=["CapStarrseq_InactiveProm_FDR95_All_samples", "CapStarrseq_Active_Prom_K562_merge_IP"]
+    """
+    input: "DATA/SalvaWork/{sample}.txt"
+    output: "DATA/SalvaWork/{sample}_onlyCoordinate.txt"
+    threads:1
+    shell: """
+    cut --field 4 {input} > {output}_1.txt
+    cut --field 7 {input} | cut --field 1 --delimiter " " | sed 's/\r//g' > {output}_2.txt
+    paste --delimiters="_" {output}_1.txt {output}_2.txt > {output}
+    
+    rm -f {output}_1.txt {output}_2.txt
+
+    """
+
+
+#rule get_active_prom:
+#    """
+#    A rule to convert table containing active promoters into list to use with gtftoolkit control_list.
+#
+#    Usage: Used by rule gtftoolkit_control_list
+#    """
+#    input: "DATA/SalvaWork/CapStarrseq_Active_Prom_K562_merge_IP.txt"
+#    output: "DATA/SalvaWork/CapStarrseq_Active_Prom_K562_merge_IP_onlyCoordinate.txt"
+#    params: ppn="nodes=1:ppn=1"
+#    shell:"""
+#    cut --field 4 {input} > {output}
+#    
+#    #cut --fields 8 {input} | cut --fields 1 --delimiter " " | \
+#    #        sed 's/\r//g' > {output}
+#    """
+
+
+rule filter_infile_for_gtftoolkit_control_list:
+    """
+    coverage files, e.g. 'RESULTS/coverage_{ft_or_broad}/{mark}_{strain}.tab', have to be filtered in order to contains only promoters from All_hprom that are either active-defined  by 'CapStarrseq_Active_Prom_common_HeLa_K562_IP.txt' and inactive-defined by 'CapStarrseq_InactiveProm_FDR95_All_samples.txt', i.e. we have to remove all promoters with 'intermediary' or uncertain activity or inactivity.
+    """
+    input: infile='RESULTS/coverage_{ft_or_broad}/{mark}_{strain}.tab', \
+           active_prom="DATA/SalvaWork/CapStarrseq_Active_Prom_{strain}_merge_IP_onlyCoordinate.txt", \
+           inactive_prom="DATA/SalvaWork/CapStarrseq_InactiveProm_FDR95_All_samples_onlyCoordinate.txt"
+    output: filtered_infile="RESULTS/filtered_active_inactive_coverage_{ft_or_broad}/{mark}_{strain}.tab"
+    threads:1
+    priority: 5
+    shell: """
+    rm -f {output.filtered_infile}
+    
+    #tail -n+2 {input.active_prom} > {input.active_prom}.tmp
+    #tail -n+2 {input.inactive_prom} > {input.inactive_prom}.tmp
+
+
+    ####
+    ## IMPORTANT: These tail do not seem to be usefule anymore, rerun the workflow without it.
+    ####
+
+    #for TRANSCRIPT_ID in `cat {input.active_prom}.tmp {input.inactive_prom}.tmp`
+    for TRANSCRIPT_ID in `cat {input.active_prom} {input.inactive_prom}`
+    do
+        #grep produce unwanted exit status1
+        #grep -s -E "^${{TRANSCRIPT_ID}}[^0-9]" {input.infile} >> {output.filtered_infile}
+        awk -v var="$TRANSCRIPT_ID" '$1 == var' {input.infile} >> {output.filtered_infile}
+    done
+    
+    rm -f {input.active_prom}.tmp {input.inactive_prom}.tmp
+    """
+
+
+
+
+rule gtftoolkit_control_list:
+    """
+    Get control listcoverage in promoter region.
+
+    Modified: 2016-02-18 11h17 - Adapted so it can work also for Hela strain.
+
+    Usage:
+    expand('RESULTS/control_list_{ft_or_broad}/{mark}_{strain}/done', \
+            zip, ft_or_broad=["ft", "ft", "broad", "broad"], \
+            mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me3"], \
+            strain=["K562"]*4), \
+    """
+    input:
+        infile='RESULTS/filtered_active_inactive_coverage_{ft_or_broad}/{mark}_{strain}.tab',
+        ref='DATA/SalvaWork/CapStarrseq_Active_Prom_{strain}_merge_IP_onlyCoordinate.txt',
+        gtftoolkit='code/python/gtftoolkit/control_list.py'
+    output:
+        control='RESULTS/control_list_{ft_or_broad}/{mark}_{strain}/control_list.txt',
+        outdir='RESULTS/control_list_{ft_or_broad}/{mark}_{strain}'
+    threads: 1
+    shell: """
+    # We remove the content in the output directory first because gtftoolkit control_list do not want to overwrite files.
+    rm -rf RESULTS/control_list_{wildcards.ft_or_broad}/{wildcards.mark}_{wildcards.strain}
+    {input.gtftoolkit} \
+            --infile {input.infile} \
+            --referenceGeneFile {input.ref} \
+            --outDirectory RESULTS/control_list_{wildcards.ft_or_broad}/{wildcards.mark}_{wildcards.strain}
+    
+    # gtftoolkit produces output files with random ID so we copy the file of interest to a name compliant with snakemake requirement.
+    cp RESULTS/control_list_{wildcards.ft_or_broad}/{wildcards.mark}_{wildcards.strain}/control_list_*.txt {output.control}
+    """
+
+
+
+rule transcript_id_to_bed:
+    """
+    tmp
+    """
+    input: indir='RESULTS/control_list_{ft_or_broad}/{mark}_{strain}',\
+           control='RESULTS/control_list_{ft_or_broad}/{mark}_{strain}/control_list.txt',\
+           bed="DATA/SalvaWork/All_hpromoterRegions.txt.bed"
+    output: bed_active_prom="RESULTS/transcript_id_to_bed/{ft_or_broad}/{mark}_{strain}/active.bed",\
+            bed_inactive_prom="RESULTS/transcript_id_to_bed/{ft_or_broad}/{mark}_{strain}/inactive.bed"
+    threads: 1
+    shell:"""
+    # control ~ inactive ; reference ~ active
+
+    rm -f {output.bed_active_prom} {output.bed_inactive_prom}
+
+    for TRANSCRIPT_ID in `cut -f1 {input.indir}/reference_list_*.txt`
+    do
+        grep -s -m 1 -F "\t${{TRANSCRIPT_ID}}\t" {input.bed} >> {output.bed_active_prom}
+    done
+    
+    for TRANSCRIPT_ID in `cut -f1 {input.indir}/control_list_*.txt`
+    do
+        grep -s -m 1 -F "\t${{TRANSCRIPT_ID}}\t" {input.bed} >> {output.bed_inactive_prom}
+    done
+    """
+
+

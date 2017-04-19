@@ -1,0 +1,158 @@
+rule extract_chiapet_scores_for_promoter_and_enhprom:
+    """
+    Modified: 2016-02-19 12h02 - Cleaned rule
+    """
+    input: txt="RESULTS/FILTER_ON_CHIAPET/{exp}_fltr.txt", \
+        all_prom="DATA/SalvaWork/All_hpromoterRegions_pm1kb.bed",\
+        all_prom_complete_ids="DATA/SalvaWork/All_hpromoterRegions.txt",\
+        enhProm="RESULTS/transcript_id_to_bed/{ft_or_broad}/{mark}_{strain}/{cond}.bed",\
+        interacting_prom="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_enhProm_in_interacting_promoters.bed"
+    output: interacting_prom="RESULTS/extract_chiapet_scores/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_enhProm_in_interacting_promoters.txt"
+    threads: 1
+    shell: """
+    # Select R1 fragment (line num as bed name)
+    awk 'BEGIN{{FS=OFS="\\t"}}{{print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14}}' {input.txt} | perl -ne 'print if($. > 1)' > {input.txt}_R1_tmp_ext.bed
+    
+    # Select R2 fragment (line num as bed name)
+    awk 'BEGIN{{FS=OFS="\\t"}}{{print $5,$6,$7,$2,$3,$4,$8,$9,$10,$11,$12,$13,$14}}' {input.txt} | perl -ne 'print if($. > 1)' > {input.txt}_R2_tmp_ext.bed
+
+    ###
+    # e-prom 1st in pair
+    ###
+    echo -e "#  e-prom or selected control is first pair in chiapet results
+mate_promoter_coord_and_gene_id\tpair_name\tZ_score\tCA\tCB\tIAB\te-promoter_coord_and_gene_id" > {output.interacting_prom}
+ 
+    bedtools intersect -a {input.all_prom} -b {input.txt}_R1_tmp_ext.bed -wa -wb | \
+    bedtools intersect -a - -b {input.interacting_prom} -wa -wb > {output.interacting_prom}_R1.txt
+
+    cut -f10- {output.interacting_prom}_R1.txt | bedtools intersect -a {input.all_prom} -b - -wa -wb | sort | uniq >> {output.interacting_prom}_R1_step2.txt
+
+    rm -f {output.interacting_prom}_R1_step3.txt
+
+    # We touch the file to avoid error missing file if there is no match with the grep command
+    touch {output.interacting_prom}_R1_step3.txt
+
+    for i in `cut -f4 {output.interacting_prom}_R1_step2.txt`
+        do
+        grep -m 1 -E "${{i}}[^0-9]" {input.all_prom_complete_ids} | cut -f4,7 | tr "\t" "_" >> {output.interacting_prom}_R1_step3.txt
+        done
+
+    cut -f1-3 {output.interacting_prom}_R1_step2.txt > {output.interacting_prom}_R1_step2_cut_-f1-3.txt
+
+    cut -f5- {output.interacting_prom}_R1_step2.txt >  {output.interacting_prom}_R1_step2_cut_-f5-.txt
+
+    paste --delimiter="\t" {output.interacting_prom}_R1_step2_cut_-f1-3.txt {output.interacting_prom}_R1_step3.txt {output.interacting_prom}_R1_step2_cut_-f5-.txt | cut -f4,10,11,14-16,20 >>  {output.interacting_prom}
+
+    
+    rm -f {output.interacting_prom}_R1.txt {output.interacting_prom}_R1_step2.txt {output.interacting_prom}_R1_step2_cut_-f1-3.txt {output.interacting_prom}_R1_step3.txt {output.interacting_prom}_R1_step2_cut_-f5-.txt
+
+
+    ###
+    # e-prom second in pair
+    ###
+
+    echo -e "# e-prom or selected control is second pair in chiapet result
+mate_promoter_coord_and_gene_id\tpair_name\tZ_score\tCA\tCB\tIAB\te-promoter_coord_and_gene_id" >> {output.interacting_prom}
+    
+    bedtools intersect -a {input.all_prom} -b {input.txt}_R2_tmp_ext.bed -wa -wb | \
+            bedtools intersect -a - -b {input.interacting_prom} -wa -wb > {output.interacting_prom}_R2.txt
+    
+    cut -f10- {output.interacting_prom}_R2.txt | bedtools intersect -a {input.all_prom} -b - -wa -wb | sort | uniq > {output.interacting_prom}_R2_step2.txt
+    
+    rm -f {output.interacting_prom}_R2_step3.txt
+
+    # We touch the file to avoid error missing file if there is no match with the grep command
+    touch {output.interacting_prom}_R2_step3.txt
+
+    for i in `cut -f4 {output.interacting_prom}_R2_step2.txt`
+        do
+        grep -m 1 -E "${{i}}[^0-9]" {input.all_prom_complete_ids} | cut -f4,7 | tr "\t" "_" >> {output.interacting_prom}_R2_step3.txt
+        done
+
+    cut -f1-3 {output.interacting_prom}_R2_step2.txt > {output.interacting_prom}_R2_step2_cut_-f1-3.txt
+
+    cut -f5- {output.interacting_prom}_R2_step2.txt >  {output.interacting_prom}_R2_step2_cut_-f5-.txt
+
+    paste --delimiter="\t" {output.interacting_prom}_R2_step2_cut_-f1-3.txt {output.interacting_prom}_R2_step3.txt {output.interacting_prom}_R2_step2_cut_-f5-.txt | cut -f4,10,11,14-16,20 >>  {output.interacting_prom}
+
+    rm -f {output.interacting_prom}_R2.txt {output.interacting_prom}_R2_step2.txt {output.interacting_prom}_R2_step2_cut_-f1-3.txt {output.interacting_prom}_R2_step3.txt {output.interacting_prom}_R2_step2_cut_-f5-.txt
+    
+    
+    mkdir --parents RESULTS/extract_chiapet_scores/renamed
+    cp {output.interacting_prom} "RESULTS/extract_chiapet_scores/renamed/{wildcards.ft_or_broad}_{wildcards.mark}_{wildcards.strain}_{wildcards.cond}_{wildcards.exp}.txt"
+    """
+
+
+rule select_chiapet_prom_prom_interaction:
+    """
+    Modified: 2016-12 Changement des références de enhProm pour cond=["active","inactive"]
+    
+    Usage:
+    expand("RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_enhProm_in_interacting_promoters.bed", \
+            zip, ft_or_broad=["ft", "ft", "broad", "broad"]*2, \
+            mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me3"]*2, \
+            strain=["K562"]*8, \
+            cond=["active"]*4+["inactive"]*4), \
+            exp=["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21","K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac","K562_MERGE_BALL_TALL_SNYD_CHIA_K4me3"]) 
+    """
+    input: txt="RESULTS/FILTER_ON_CHIAPET/{exp}_fltr.txt", \
+        all_prom="DATA/allResults_FC_unix_1k_1k.bed",\
+        enhProm="RESULTS/transcript_id_to_bed/{ft_or_broad}/{mark}_{strain}/{cond}.bed"
+    output: txt="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_fltr_pp_chiapet_overlap_prom.txt", \
+            bed="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_fltr_pp_chiapet_overlap_prom.bed", \
+            gtf="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_fltr_pp_chiapet_overlap_prom.gtf", \
+            log="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_fltr_pp_chiapet_overlap_prom.log", \
+            ip="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_interacting_promoters.bed",\
+            eip="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_enhProm_in_interacting_promoters.bed"
+    threads: 1
+    shell: """
+    # Select R1 fragment (line num as bed name)
+    awk 'BEGIN{{FS=OFS="\\t"}}{{print $2,$3,$4,$8}}' {input.txt} | perl -ne 'print if($. > 1)' > {input.txt}_R1_tmp.bed
+    
+    # if not created
+    touch {input.txt}_R1_tmp.bed
+    
+    # Select R2 fragment (line num as bed name)
+    awk 'BEGIN{{FS=OFS="\\t"}}{{print $5,$6,$7,$8}}' {input.txt} | perl -ne 'print if($. > 1)' > {input.txt}_R2_tmp.bed
+    
+    # if not created
+    touch {input.txt}_R1_tmp.bed    
+    
+    # Check intersection of R1 and R2 ends (use uniq counting, -u).
+    bedtools intersect -u -a {input.txt}_R1_tmp.bed -b {input.all_prom} > {output.txt}_chiapet_overlap_prom_R1.bed
+    bedtools intersect -u -a {input.txt}_R2_tmp.bed -b {input.all_prom} > {output.txt}_chiapet_overlap_prom_R2.bed
+    
+    # Check that a particular interaction id was found in both bedtools results
+    (cut -f4 {output.txt}_chiapet_overlap_prom_R2.bed ; cut -f4 {output.txt}_chiapet_overlap_prom_R1.bed)  \
+        | sort -g  | uniq -c  | grep -w 2 | sed 's/ *2 //'> {output.txt}.id_list 
+
+    #retrieve the list of chiapet fragments
+    awk -F '\\t' 'NR==FNR {{id[$1]; next}} $8 in id || FNR == 1' {output.txt}.id_list {input.txt} > {output.txt}
+
+    # Convert the list of chiapet fragments into GTF format
+    awk 'BEGIN{{FS=OFS="\t"}}{{if(NR > 2){{print $2,"SOURCE", "exon", $3,$4,"0","+",0,"transcript_id \\"FRAG_"FNR"\\";\\n"$5,"SOURCE", "exon",$6,$7,"0","+",0,"transcript_id \\"FRAG_"FNR"\\";"}}}}' {output.txt} > {output.gtf}
+    
+    
+    # Get the list of interacting promoters
+    cut -f2,3,4 {output.txt} | perl -ne 'print if($. > 1)' > {output.bed}
+    cut -f5,6,7 {output.txt} | perl -ne 'print if($. > 1)' >> {output.bed}
+    bedtools intersect -u -a {input.all_prom} -b {output.bed} > {output.ip}
+    
+    
+    # basic stats
+    echo -ne "Number_of_filtered_interactions\\t" > {output.log}
+    wc -l  {input.txt}  |perl -npe 's/ +/\t/' >> {output.log}
+    echo -ne "Number_of_promoters\\t" >> {output.log}
+    wc -l  {input.all_prom}  |perl -npe 's/ +/\t/' >> {output.log}
+    echo -ne "Number_of_interacting_promoters\\t" >> {output.log} 
+    wc -l  {output.txt}  |perl -npe 's/ +/\t/' >> {output.log}
+    echo -ne "Number_of_enhProm_promoters\\t" >> {output.log} 
+    wc -l  {input.enhProm}  |perl -npe 's/ +/\t/' >> {output.log}
+
+    # Compute the number of enhProm falling into interacting promoters
+    bedtools intersect -u -a {input.enhProm} -b {output.ip} > {output.eip}
+    
+    echo -ne "Number_of_enhProm_falling_in_interacting_promoters\\t" >> {output.log}
+    wc -l  {output.eip}  |perl -npe 's/ +/\t/'     >> {output.log}    
+    
+    """

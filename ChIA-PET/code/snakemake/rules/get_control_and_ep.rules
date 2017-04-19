@@ -1,0 +1,38 @@
+rule get_control_and_ep:
+    input: allres='DATA/allResults_FC_unix.txt', ctrl='DATA/ControlRegions_FC0.8-0.9_All_samples.txt'
+    output: ctrl='RESULTS/ENH_PROM_AND_CTRL/control.tsv', \
+                ctrlbed="RESULTS/ENH_PROM_AND_CTRL/control.bed", \
+                ep='RESULTS/ENH_PROM_AND_CTRL/enh-prom-k562.tsv', \
+                bed="RESULTS/ENH_PROM_AND_CTRL/enh-prom-k562.bed"
+    threads: 1
+    params: seed=SEED
+    run : R("""
+
+        all <- read.table('{input.allres}', head=T)
+        
+        # Select pics located in promoter regions:
+        all.prox <- subset(all, location =='P')
+        
+        # Select pics called with inflexion point
+        
+        all.prox.sign <- subset(all.prox, K562_X_replicates_group_inflexionPoint == 'Active')
+        
+        # load control regions
+        
+        ctrl <- read.table('{input.ctrl}', head=F)
+        
+        # Select the same number of ctrl and sign.
+        set.seed({params.seed})
+        nb.sign <- nrow(all.prox.sign)
+        ctrl.selected.pos <- sample(1:nrow(ctrl), size = nb.sign)
+        ctrl.select <- ctrl[ctrl.selected.pos,]
+        ctrl.select.cordinate <- paste(paste(ctrl.select[,1], ctrl.select[,2], sep=':'), ctrl.select[,3], sep='-')
+        pos <- all$cordinate %in% ctrl.select.cordinate
+        
+        ctrl.select.full <- all[pos,]
+        
+        write.table(ctrl.select.full, '{output.ctrl}', col.names=NA, sep='\t', quote=F)
+        write.table(ctrl.select.full[,c(1,2,3,6)], '{output.ctrlbed}', col.names=F, row.names=F, sep='\t', quote=F)
+        write.table(all.prox.sign, '{output.ep}', col.names=NA, sep='\t', quote=F)
+        write.table(all.prox.sign[,c(1,2,3,6)], '{output.bed}', col.names=F, row.names=F, sep='\t', quote=F)
+    """)

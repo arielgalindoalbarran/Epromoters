@@ -1,0 +1,155 @@
+rule get_chipseq_data_k562:
+    """
+    Get ChIP-seq data for better control selection
+    """
+    output: h3k27ac_k562='DATA/CHIP-SEQ/BW/ChIP-seq_H3K27ac_K562.bigWig', \
+            h3k4me3_k562='DATA/CHIP-SEQ/BW/ChIP-seq_H3K4me3_K562.bigWig', \
+            rad21_k562='DATA/CHIP-SEQ/BW/ChIP-seq_RAD21_K562.bigWig', \
+            polr2a_k562='DATA/CHIP-SEQ/BW/ChIP-seq_POLR2A_K562.bigWig'
+    threads: 1
+    shell:"""
+    wget https://www.encodeproject.org/files/ENCFF000BWY/@@download/ENCFF000BWY.bigWig
+    mv ENCFF000BWY.bigWig {output.h3k27ac_k562}
+    
+    wget https://www.encodeproject.org/files/ENCFF000VDQ/@@download/ENCFF000VDQ.bigWig
+    mv ENCFF000VDQ.bigWig {output.h3k4me3_k562}
+    
+    wget https://www.encodeproject.org/files/ENCFF000YXZ/@@download/ENCFF000YXZ.bigWig
+    mv ENCFF000YXZ.bigWig {output.rad21_k562}
+
+    wget https://www.encodeproject.org/files/ENCFF000YWS/@@download/ENCFF000YWS.bigWig
+    mv ENCFF000YWS.bigWig {output.polr2a_k562}
+    """
+
+rule get_chipseq_data_hela:
+    """
+    Get ChIP-seq data for better control selection
+    Created: 2016-02-17 17h07
+    """
+    output: ctcf_hela='DATA/CHIP-SEQ/BW/ChIP-seq_CTCF_Hela.bigWig', \
+            pol2_hela='DATA/CHIP-SEQ/BW/ChIP-seq_POLII_Hela.bigWig', \
+            p300_hela='DATA/CHIP-SEQ/BW/ChIP-seq_P300_Hela.bigWig'
+    threads: 1
+    shell:"""
+    wget https://www.encodeproject.org/files/ENCFF000BAN/@@download/ENCFF000BAN.bigWig
+    mv ENCFF000BAN.bigWig {output.ctcf_hela}
+    
+    wget https://www.encodeproject.org/files/ENCFF000XJT/@@download/ENCFF000XJT.bigWig
+    mv ENCFF000XJT.bigWig {output.pol2_hela}
+    
+    wget https://www.encodeproject.org/files/ENCFF000XJK/@@download/ENCFF000XJK.bigWig
+    mv ENCFF000XJK.bigWig {output.p300_hela}
+    """
+
+rule get_additional_chipseq_data_hela:
+    """
+    Get additional ChIP-seq data to answer this issue from Salva:
+        
+    L'idee est donc de comparer pour chaque liste de Epromoters (Hela specifiques, K6562 specifiques et communs) les ratios H3K27ac/H3K4me3 dans les Hela et K562. Representer les resultats en box plot et verifier si la difference est significative.
+    Merci bcp d'avance !
+
+    K562    H3K27ac ENCFF000BWY bigWig  signal ENCSR000AKP
+    K562    H3K4me3 ENCFF000VDQ bigWig  signal ENCSR000EWA
+
+    HeLa-S3 H3K4me3 ENCFF000BCP bigWig  signal ENCSR000AOF
+    HeLa-S3 H3K27ac ENCFF000BBR bigWig  signal ENCSR000AOC
+
+    Created: 2016-06-02 10h52
+    """
+    output: h3k4me3_hela='DATA/CHIP-SEQ/BW/ChIP-seq_H3K4me3_Hela.bigWig', \
+            h3k27ac_hela='DATA/CHIP-SEQ/BW/ChIP-seq_H3K27ac_Hela.bigWig' 
+    threads: 1
+    shell:"""
+    wget https://www.encodeproject.org/files/ENCFF000BCP/@@download/ENCFF000BCP.bigWig
+    mv ENCFF000BCP.bigWig {output.h3k4me3_hela}
+    
+    wget https://www.encodeproject.org/files/ENCFF000BBR/@@download/ENCFF000BBR.bigWig 
+    mv ENCFF000BBR.bigWig {output.h3k27ac_hela}
+    """
+
+rule compute_ratio_bw:
+    """
+    Created: 2016-06-02 10h58
+
+    Usage:
+    expand("DATA/processed/bigwigCompare/ratio_H3K27ac_H3K4me3_{strain}.bw", strain=["K562","Hela"])
+    """
+    input:  bw1="DATA/CHIP-SEQ/BW/ChIP-seq_H3K27ac_{strain}.bigWig",\
+            bw2="DATA/CHIP-SEQ/BW/ChIP-seq_H3K4me3_{strain}.bigWig",\
+            soft="soft/miniconda/envs/py27/bin/bigwigCompare"
+    output: bw="DATA/processed/bigwigCompare/ratio_H3K27ac_H3K4me3_{strain}.bw"
+    shell:"""
+    {input.soft} -b1 {input.bw1} -b2 {input.bw2} --ratio log2 --outFileFormat=bigwig --outFileName {output.bw}
+    """ 
+
+rule gtftoolkit_bed_to_gtf:
+    input:  bed="DATA/input/bed/{id}.txt",\
+            soft="code/python/gtftoolkit/bed_to_gtf.py"
+    output: gtf="DATA/processed/gtftoolkit/bed_to_gtf/{id}.gtf"
+    shell:"""
+    tail -n+2 {input.bed} | {input.soft} --outfile {output.gtf}
+    """
+
+
+rule gtftoolkit_coverage_for_ratio_bw:
+    """
+    Created: 2016-06-02 15h23
+    """
+    input:  bw="DATA/processed/bigwigCompare/ratio_H3K27ac_H3K4me3_{ratio_strain}.bw",\
+            gtf="DATA/processed/gtftoolkit/bed_to_gtf/CapStarrseq_Active_EProm_{active_strain}.gtf",\
+            chrominfo="ANNOTATIONS/ChromInfo.txt",\
+            gtftoolkit="code/python/gtftoolkit/convert.py"
+    output: tab="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_{ratio_strain, K562|Hela}_active_Eprom_in_{active_strain, common_Hela_K562_IP|Hela_specific|K562_specific}.tab"
+    threads: 16
+    shell:"""
+    {input.gtftoolkit} coverage --verbose \
+            --infile {input.gtf} \
+            --type transcript \
+            --coveragefileList {input.bw} \
+            --chromInfo {input.chrominfo} \
+            --score b0 --nbThreads {threads} | \
+            {input.gtftoolkit} --format tx_tab --verbose > {output.tab}
+    """
+
+
+
+rule gtftoolkit_coverage_for_ratio_bw_all:
+    """
+    Created: 2016-06-02 15h23
+    """
+    input:  bw="DATA/processed/bigwigCompare/ratio_H3K27ac_H3K4me3_{ratio_strain}.bw",
+            gtf="DATA/SalvaWork/All_hpromoterRegions_m200p50.gtf",
+            chrominfo="ANNOTATIONS/ChromInfo.txt",
+            gtftoolkit="code/python/gtftoolkit/bw_coverage.py"
+    output: tab="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_{ratio_strain, K562|Hela}_allhprom.tab"
+    threads: 16
+    shell:"""
+    {input.gtftoolkit} --verbose \
+            --infile {input.gtf} \
+            --type transcript \
+            --coveragefileList {input.bw} \
+            --chromInfo {input.chrominfo} \
+            --score b0 --nbThreads {threads} | \
+            {input.gtftoolkit} convert --format tx_tab --verbose > {output.tab}
+    """
+
+
+
+
+rule boxplot_ratio:
+    input:  tab=expand("DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_{ratio_strain}_active_Eprom_in_{active_strain}.tab", ratio_strain=["K562","Hela"], active_strain=["common_Hela_K562_IP","Hela_specific","K562_specific"]),\
+            tab_k562_k562="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_K562_active_Eprom_in_K562_specific.tab",\
+            tab_k562_hela="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_K562_active_Eprom_in_Hela_specific.tab",\
+            tab_k562_common="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_K562_active_Eprom_in_common_Hela_K562_IP.tab",\
+            tab_hela_k562="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_Hela_active_Eprom_in_K562_specific.tab",\
+            tab_hela_hela="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_Hela_active_Eprom_in_Hela_specific.tab",\
+            tab_hela_common="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_Hela_active_Eprom_in_common_Hela_K562_IP.tab",\
+            tab_k562_all="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_K562_allhprom.tab",\
+            tab_hela_all="DATA/processed/gtftoolkit/coverage_for_ratio_bw/ratio_H3K27ac_H3K4me3_Hela_allhprom.tab",\
+            rscript="soft/miniconda/envs/py35/bin/Rscript",\
+            code="code/r/boxplot_ratio.R"
+    output: pdf="RESULTS/boxplot_ratio/test1.pdf"
+    shell:"""
+    {input.rscript} {input.code} --tab_k562_k562 {input.tab_k562_k562} --tab_k562_hela {input.tab_k562_hela} --tab_k562_common {input.tab_k562_common} --tab_hela_k562 {input.tab_hela_k562} --tab_hela_hela {input.tab_hela_hela} --tab_hela_common {input.tab_hela_common} --tab_k562_all {input.tab_k562_all} --tab_hela_all {input.tab_hela_all} --output {output.pdf}
+    """
+

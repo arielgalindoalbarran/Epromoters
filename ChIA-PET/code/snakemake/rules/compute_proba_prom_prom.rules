@@ -1,0 +1,36 @@
+rule compute_proba_prom_prom:
+    """
+    Modified: 2016-02-17 18h07 - Cleaned rule
+    """
+    input: "RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_fltr_pp_chiapet_overlap_prom.log"
+    output: "RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_fltr_pp_chiapet_overlap_prom.stat"
+    threads: 1
+    run: R("""
+    data <- read.table('{input}', head=F, row=1)
+    nbp <- data["Number_of_promoters",1]
+    nbpi <- data["Number_of_interacting_promoters",1]
+    p <- nbpi / nbp
+    nep <- data["Number_of_enhProm_promoters",1]
+    nepi <- data["Number_of_enhProm_falling_in_interacting_promoters",1]
+
+    # Binomial test
+    res <- pbinom(lower.tail=FALSE, prob= p, size=nep, q=nepi-1)
+    print("test pbinom")
+    print(res)
+   
+    # TODO: Modify binomial to hypergeometric for following rules and plots.
+    # Hypergeometric test 
+    res <- phyper(lower.tail=FALSE, q=nepi-1, m=nep, n=nbp-nep, k=nbpi)
+    print("test phyper")
+    print(res)
+    cat('{output}\n', file='{output}')
+    cat(paste("Binomial_test\\t", res, "\n", sep=""), file = "{output}", append=T)
+    """)
+   
+
+"""
+Binom test put outside becaue conflict with snakemake when commented inside run.
+
+    #cat('{output}\n', file='{output}')
+    #cat(paste("Binomial_test\\t", res, "\n", sep=""), file = "{output}", append=T)
+""" 

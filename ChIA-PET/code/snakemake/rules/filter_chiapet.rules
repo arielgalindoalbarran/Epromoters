@@ -1,0 +1,20 @@
+
+
+"""
+Specific rules for non-encode Chiapet data are created and given higher priority so the encode rule is not run for these samples.
+"""
+
+rule filter_chiapet_encode:
+    """
+    """
+    input: "DATA/{exp}.tsv"
+    output: "RESULTS/FILTER_ON_CHIAPET/{exp}_fltr.txt"
+    threads: 1
+    run: R("""
+    d <- read.table("{input}", header=TRUE)
+    d<- d[d$chrom1==d$chrom2,]
+    write.table(d, "{output}", sep="\t", quote=F, col.names=NA)
+    """)
+
+
+
