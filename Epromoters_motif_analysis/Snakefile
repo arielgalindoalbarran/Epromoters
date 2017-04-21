@@ -1,0 +1,441 @@
+## Import functions to run R
+import os
+import itertools
+from snakemake.utils import R
+
+################################################################
+## Environment variables
+RSAT = os.environ['RSAT']
+
+
+################################################################
+## BED folder + files
+## The names of the BED files will be used as the collection's
+## name during the analysis
+BED_DIR = os.path.join("data/BED_files")
+#PROMOTERS_COLLECTION = "All_hpromoterRegions CapStarrseq_Active_Prom_common_HeLa_K562_IP CapStarrseq_Active_Prom_HELA_merge_IP CapStarrseq_Active_Prom_K562_merge_IP CapStarrseq_InactiveProm_FDR95_All_samples".split()
+
+BG_PROMOTERS = "All_hpromoterRegions All_hpromoterRegions_extended_1000bp_upstream_downstream".split()
+ACTIVE_PROMOTERS_COLLECTION = "CapStarrseq_Active_Prom_common_HeLa_K562_IP".split()
+PROMOTERS_COLLECTION = "All_hpromoterRegions".split()
+
+
+################################################################
+## Motifs folder + files (Non-Redundant version)
+MOTIF_DB_DIR = os.path.join("data/Non_redundant_motif_databases")
+MOTIF_DB = "Human".split()
+MOTIF_FILES =  {
+    'Human' : os.path.join(MOTIF_DB_DIR, "Hocomoco_Jaspar_nonredundant_motifs.tf")
+};
+
+
+COUNT_MOTIF_MATCHES_MODE = "ocurrence presence".split()
+
+
+################################################################
+## Output folder(s) + files
+RESULTS_DIR = "results"
+SEQUENCES_DIR = os.path.join(RESULTS_DIR, "sequences")
+SEQUENCES_RANDOM_GENOME_DIR = os.path.join(RESULTS_DIR, "random_genome_sequences")
+BG_MODEL_DIR = os.path.join(RESULTS_DIR, "BG_models")
+RANDOM_SEQUENCES_DIR = os.path.join(RESULTS_DIR, "random_sequences")
+MATRIX_SCAN_DIR = os.path.join(RESULTS_DIR, "matrix_scan")
+MATRIX_SCAN_DIR_PROMOTERS = os.path.join(MATRIX_SCAN_DIR, "promoters")
+MATRIX_SCAN_DIR_EXTENDED_PROMOTERS = os.path.join(MATRIX_SCAN_DIR, "extended_promoters")
+MATRIX_SCAN_DIR_EXTENDED_PROMOTERS_PLOTS = os.path.join(MATRIX_SCAN_DIR, "extended_promoters/plots")
+POSITION_SCAN_DIR_PROMOTERS = os.path.join(RESULTS_DIR, "position_scan")
+MATRIX_SCAN_DIR_EXTENDED_PROMOTERS_PARSED = os.path.join(MATRIX_SCAN_DIR, "extended_promoters/parsed_files")
+MATRIX_SCAN_DIR_HEATMAPS = os.path.join(MATRIX_SCAN_DIR, "heatmap_motif_based_sequence_classification")
+MATRIX_ENRICHMENT_DIR = os.path.join(RESULTS_DIR, "motif_enrichment")
+
+################################################################
+## Parameters Variables (used in different rules)
+
+## Human Genome Feb 2009
+REFERENCE_GENOME = "hg19"
+ORGANISM = "Homo_sapiens_GRCh37"
+
+## Markov order
+MKV_ORDER = "1 2".split()
+#MKV_ORDER_SCAN = "1 2 DNAse".split()
+MKV_ORDER_SCAN = "2".split()
+
+## P-value
+P_VALUE = "1e-3".split()
+
+## PSSMs Format = TRANSFAC
+PSSM_FORMAT = "tf"
+
+## Sequence Format
+SEQUENCE_FORMAT = "fasta"
+
+## BG Models Files
+BG_MODEL_FILES =  {
+     '1' : os.path.join(BG_MODEL_DIR, "All_hpromoterRegions_BG_model_mkv_1.oligos"),
+     '2' : os.path.join(BG_MODEL_DIR, "All_hpromoterRegions_BG_model_mkv_2.oligos"),
+     'DNAse' : os.path.join(BG_MODEL_DIR, "All_human_ENCODE_DNAse_mk1_bg.oligos")
+};
+
+
+################################################################################################################################
+################################################################################################################################
+
+BG_MODEL_FILE = expand(os.path.join(BG_MODEL_DIR, "{bg_promoters}_BG_model_mkv_{mkv_order}.oligos"), bg_promoters = BG_PROMOTERS, mkv_order = MKV_ORDER)
+
+PROMOTERS_FASTA_FILES = expand(os.path.join(SEQUENCES_DIR, "{promoters}.fasta"), promoters = PROMOTERS_COLLECTION)
+
+EXTENDED_PROMOTERS_FASTA_FILES = expand(os.path.join(SEQUENCES_DIR, "{promoters}_extended_1000bp_upstream_downstream.fasta"), promoters = PROMOTERS_COLLECTION)
+
+MATRIX_SCAN_HEATMAPS = expand(os.path.join(MATRIX_SCAN_DIR_HEATMAPS, "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_count_mode_{count_mode}", "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_count_mode_{count_mode}_dynamic_heatmap_d3_matches.html"), promoters = PROMOTERS_COLLECTION, pval = P_VALUE, motif_db = MOTIF_DB, mkv = MKV_ORDER_SCAN, count_mode = COUNT_MOTIF_MATCHES_MODE)
+
+MATRIX_SCAN_PROMOTERS_FILES = expand(os.path.join(MATRIX_SCAN_DIR_PROMOTERS, "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}.tab"), promoters = PROMOTERS_COLLECTION, pval = P_VALUE, motif_db = MOTIF_DB, mkv = MKV_ORDER_SCAN)
+
+MATRIX_SCAN_EXTENDED_PROMOTERS_FILES = expand(os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS, "{promoters}_extended_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}.tab"), promoters = PROMOTERS_COLLECTION, pval = P_VALUE, motif_db = MOTIF_DB, mkv = MKV_ORDER_SCAN)
+
+MATRIX_SCAN_EXTENDED_PROMOTERS_FILES_PARSED = expand(os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS_PARSED, "{promoters}_extended_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_PARSED.tab"), promoters = PROMOTERS_COLLECTION, pval = P_VALUE, motif_db = MOTIF_DB, mkv = MKV_ORDER_SCAN)
+
+MATRIX_QUALITY_FILES = expand(os.path.join(MATRIX_ENRICHMENT_DIR, "{motif_db}_motifs_Epromoters_vs_Inactive_Promoters_{mkv}", "{motif_db}_motifs_Epromoters_vs_Inactive_Promoters_{mkv}_synthesis.html"), motif_db = MOTIF_DB, mkv = MKV_ORDER_SCAN)
+
+EXTENDED_PROMOTERS_PLOTS = expand(os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS_PLOTS, "parsed_files/{active_promoters}_vs_CapStarrseq_InactiveProm_FDR95_All_samples_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_TFBSs_distribution_in_extended_promoters.pdf"), active_promoters = ACTIVE_PROMOTERS_COLLECTION, pval = P_VALUE, motif_db = MOTIF_DB, mkv = MKV_ORDER_SCAN)
+
+POSITION_SCAN_EXTENDED_PROMOTERS = expand(os.path.join(POSITION_SCAN_DIR_PROMOTERS, "{promoters}_extended_position_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_report.html"), promoters = PROMOTERS_COLLECTION, pval = P_VALUE, motif_db = MOTIF_DB, mkv = MKV_ORDER_SCAN)
+
+#########
+## All
+rule all:
+    input:
+        BG_MODEL_FILE, \
+        PROMOTERS_FASTA_FILES, \
+        EXTENDED_PROMOTERS_FASTA_FILES, \
+        MATRIX_SCAN_HEATMAPS, \
+        MATRIX_SCAN_PROMOTERS_FILES, \
+        MATRIX_SCAN_EXTENDED_PROMOTERS_FILES, \
+        MATRIX_SCAN_EXTENDED_PROMOTERS_FILES_PARSED, \
+        EXTENDED_PROMOTERS_PLOTS, \
+	POSITION_SCAN_EXTENDED_PROMOTERS
+
+
+#expand(os.path.join(MOTIF_DB_DIR, "{motif_db}_permuted.tf"), motif_db = MOTIF_DB)
+# snakemake --snakefile path/file.txt -l 
+# snakemake --snakefile path/file.txt rule_name
+# snakemake --dag | dot -Tpdf > test.pdf
+# snakemake -R rule_name
+
+
+##################################################################
+## Fetch the corresponding sequences of agiven refrences genome
+## using the coordinates (BED) file
+rule fetch_sequences_from_BED:
+    """  Given a coordinates (BED) file and a reference genome fetch and retrieve the corresponding sequences in fasta format.
+         Program: RSAT fetch-sequences
+    """
+    input:
+        os.path.join(BED_DIR, "{promoters}.bed")
+    output:
+        os.path.join(SEQUENCES_DIR, "{promoters}.fasta")
+    message:
+        " Fetching sequences from {wildcards.promoters}.bed in the reference genome {REFERENCE_GENOME}."
+    params:
+        ref_genome = REFERENCE_GENOME, \
+        v = "1", \
+        head_format = "galaxy"
+    shell:
+        'fetch-sequences -v {params.v} -i {input} -genome {params.ref_genome} -header_format {params.head_format} -o {output}' 
+
+##################################################################
+## Fetch the corresponding sequences of agiven refrences genome
+## using the coordinates (BED) file
+rule fetch_sequences_from_BED_extended_promoters:
+    """  Given a coordinates (BED) file and a reference genome fetch and retrieve the corresponding sequences in fasta format. In this case the promoters are extended to 1000 bp upstream.
+         Program: RSAT fetch-sequences 
+    """
+    input:
+        os.path.join(BED_DIR, "{promoters}.bed")
+    output:
+        os.path.join(SEQUENCES_DIR, "{promoters}_extended_1000bp_upstream_downstream.fasta")
+    message:
+        " Fetching sequences from {wildcards.promoters}.bed in the reference genome {REFERENCE_GENOME}."
+    params:
+        ref_genome = REFERENCE_GENOME, \
+        v = "1", \
+        head_format = "galaxy"
+    shell:
+        'fetch-sequences -v {params.v} -i {input} -genome {params.ref_genome} -header_format {params.head_format} -upstr_ext 800 -downstr_ext 950 -o {output}' 
+
+
+##################################################################
+## Given a fasta (or BED) file, retrieve a collection of sequences
+## of the same length as the fasta. They are taken randomly from
+## a specified reference genome.
+## These sequences will be used as part of the negative controls
+rule random_genome_fragments:
+    """  Given a FASTA file and a reference genome retrieve a randomly selected collection of sequences with the same length as the input sequencefile.
+         Program: RSAT random-genome-fragments
+    """
+    input:
+        os.path.join(SEQUENCES_DIR, "{promoters}.fasta")
+    output:
+        os.path.join(SEQUENCES_RANDOM_GENOME_DIR, "{promoters}_random_genome_fragments.fasta")
+    message:
+        " Taking Random Genome Fragments using as template sequences the file {wildcards.promoters}.fasta in the reference genome {REFERENCE_GENOME}."
+    params:
+        organism = ORGANISM, \
+        v = "1", \
+        template_format = SEQUENCE_FORMAT, \     
+        return_fields = "seq"
+    shell:
+        'random-genome-fragments -v {params.v} -i {input} -org {params.organism} -template_format {params.template_format} -return {params.return_fields} -o {output}' 
+
+
+##################################################################
+## Calculate background models from file sequences in fasta fromat.
+## The BG models can be calculated with different markov orders.
+## Markov order = K-mer - 1
+rule create_BG_model:
+    """  Calculate the BG with a specified markov order for a specific set of sequences.
+         Program: RSAT create-background-model
+    """
+    input:
+        os.path.join(SEQUENCES_DIR, "{bg_promoters}.fasta")
+    output:
+        os.path.join(BG_MODEL_DIR, "{bg_promoters}_BG_model_mkv_{mkv_order}.oligos")
+    message:
+        " Calculating the BG model with markov order {wildcards.mkv_order} from the file {input} ."
+    params:
+        v = "1"
+    shell:
+        'oligo-analysis -v {params.v} -quick -1str -i {input} -l {wildcards.mkv_order} -noov -o {output}' 
+
+
+##################################################################
+## Given a fasta file, generate a collection of sequences
+## of the same length as the fasta. They are generated randomly
+## using the same probabilities indicated in the BG model file
+## These sequences will be used as part of the negative controls
+rule generate_random_sequences:
+    """ Generates a random sequences using a specified BG model as probalilities.
+        Program: RSAT random-seq
+    """
+    input:
+        bg_model_file = os.path.join(BG_MODEL_DIR, "{promoters}_BG_model_mkv_{mkv_order}.oligos") , \
+        fasta_seq = os.path.join(SEQUENCES_DIR, "{promoters}.fasta")     
+    output:
+        os.path.join(RANDOM_SEQUENCES_DIR, "/{promoters}_random_sequences_BG_mkv_{mkv_order}.fasta")
+    message:
+        " Generating Random Sequences using as template sequences the file {input.fasta_seq} with the BG model file {input.bg_model_file}."
+    params:
+        v = "1", \
+        template_format = SEQUENCE_FORMAT, \     
+        line_width = "70"
+    shell:
+        'random-seq -v {params.v} -i {input.fasta_seq} -format {params.template_format}  -template_format {params.template_format} -lw {params.line_width} -expfreq {input.bg_model_file} -o {output}'
+
+
+##################################################################
+## Scan a DNA sequences (fasta format) with a collection of PSSMs
+## given a BG model.
+rule matrix_scan_sequences:
+    """ Scan a DNA sequences (fasta format) with a collection of PSSMs given a BG model.
+Return those hits above the threshold, which is set as the p-val of the match given the BG model.
+        Program: RSAT matrix-scan-quick
+    """
+    input:
+        bg_model_file = lambda wildcards: BG_MODEL_FILES[wildcards.mkv], \
+        fasta_seq = os.path.join(SEQUENCES_DIR, "{promoters}.fasta"), \
+        matrices = lambda wildcards: MOTIF_FILES[wildcards.motif_db]
+    output:
+        os.path.join(MATRIX_SCAN_DIR_PROMOTERS, "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}.tab")
+    message:
+        " Scanning the promoter sequences of {wildcards.promoters} with the {wildcards.motif_db} motif collection. P-value = {wildcards.pval} . MArkov order = {wildcards.mkv}"
+    params:
+        v = "1", \
+        matrix_format = PSSM_FORMAT, \     
+        pseudo_weight = "1", \
+        decimals = "1", \
+        origin = "end", \
+        bg_pseudo_weight = "0.01", \
+        seq_format = SEQUENCE_FORMAT, \
+        N_treatment = "score"
+    shell:
+        'matrix-scan -v {params.v} -quick -matrix_format {params.matrix_format} -m {input.matrices} -pseudo {params.pseudo_weight} -decimals {params.decimals} -2str -origin {params.origin} -bg_pseudo {params.bg_pseudo_weight} -uth pval {wildcards.pval} -i {input.fasta_seq} -seq_format {params.seq_format} -return limits -return pval -o {output} -n {params.N_treatment} -bgfile {input.bg_model_file}'
+
+
+##################################################################
+## Scan a DNA sequences (fasta format) with a collection of PSSMs
+## given a BG model.
+rule matrix_scan_sequences_extended:
+    """ Scan a DNA sequences (fasta format) with a collection of PSSMs given a BG model.
+Return those hits above the threshold, which is set as the p-val of the match given the BG model.
+        Program: RSAT matrix-scan-quick
+    """
+    input:
+        bg_model_file = lambda wildcards: BG_MODEL_FILES[wildcards.mkv], \
+        fasta_seq = os.path.join(SEQUENCES_DIR, "{promoters}_extended_1000bp_upstream_downstream.fasta"), \
+        matrices = lambda wildcards: MOTIF_FILES[wildcards.motif_db]
+    output:
+        os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS, "{promoters}_extended_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}.tab")
+    message:
+        " Scanning the extended promoter sequences (-1000, +1000) of {wildcards.promoters} with the {wildcards.motif_db} motif collection. P-value = {wildcards.pval} . Markov order = {wildcards.mkv}"
+    params:
+        v = "1", \
+        matrix_format = PSSM_FORMAT, \     
+        pseudo_weight = "1", \
+        decimals = "1", \
+        origin = "end", \
+        bg_pseudo_weight = "0.01", \
+        seq_format = SEQUENCE_FORMAT, \
+        N_treatment = "score"
+    shell:
+        'matrix-scan -v {params.v} -quick -matrix_format {params.matrix_format} -m {input.matrices} -pseudo {params.pseudo_weight} -decimals {params.decimals} -2str -origin {params.origin} -bg_pseudo {params.bg_pseudo_weight} -uth pval {wildcards.pval} -i {input.fasta_seq} -seq_format {params.seq_format} -return limits -return pval -o {output} -n {params.N_treatment} -bgfile {input.bg_model_file}'
+
+
+##################################################################
+## Compute a heatmap showing the number of matches per matrix per
+## sequence
+rule matrix_scan_d3_heatmap:
+    """ Produce a dynamic heatmap showing the number of matches of each matrix in all the scanned sequences.
+        Program: RSAT heatmap_matrix_scan_matches
+    """
+    input:
+        os.path.join(MATRIX_SCAN_DIR_PROMOTERS, "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}.tab")
+    output:
+        os.path.join(MATRIX_SCAN_DIR_HEATMAPS, "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_count_mode_{count_mode}", "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_count_mode_{count_mode}_dynamic_heatmap_d3_matches.html")
+    message:
+        " Creating the dynamic heatmaps for the sequences of {wildcards.promoters} scanned with {wildcards.motif_db} motif collection. P-value = {wildcards.pval}. Markov order = {wildcards.mkv}"
+    params:
+        v = "2", \
+        prefix = os.path.join(MATRIX_SCAN_DIR_HEATMAPS, "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_count_mode_{count_mode}", "{promoters}_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_count_mode_{count_mode}"), \
+        pvalue = "1e-3"
+    shell:
+        'heatmap_matrix_scan_matches -v {params.v} -i {input} -count_mode {wildcards.count_mode} -draw_heatmap -o {params.prefix} -pval {params.pvalue}'
+
+
+##################################################################
+## Compute a heatmap showing the number of matches per matrix per
+## sequence
+rule individual_motif_quality:
+    """ Measure the enrichment of a motif in a set of sequences (Query vs Control).
+        Program: RSAT matrix-quality
+    """
+    input:
+        bg_model_file = lambda wildcards: BG_MODEL_FILES[wildcards.mkv], \
+        fasta_seq_query_merge = os.path.join(SEQUENCES_DIR, "CapStarrseq_Active_Prom_common_HeLa_K562_IP.fasta"), \
+        fasta_seq_query_HeLa = os.path.join(SEQUENCES_DIR, "CapStarrseq_Active_Prom_HELA_merge_IP.fasta"), \
+        fasta_seq_query_K562 = os.path.join(SEQUENCES_DIR, "CapStarrseq_Active_Prom_K562_merge_IP.fasta"), \
+        fasta_seq_control = os.path.join(SEQUENCES_DIR, "CapStarrseq_InactiveProm_FDR95_All_samples.fasta"), \
+        matrices = lambda wildcards: MOTIF_FILES[wildcards.motif_db]
+    output:
+        os.path.join(MATRIX_ENRICHMENT_DIR, "{motif_db}_motifs_Epromoters_vs_Inactive_Promoters_{mkv}", "{motif_db}_motifs_Epromoters_vs_Inactive_Promoters_{mkv}_synthesis.html")
+    message:
+        " Measure the motif enrichment of {wildcards.motif_db} motif collection in the Epromoters versus the CapStarrseq_InactiveProm_FDR95_All_samples (Inactive Promoters) using a Markov order = {wildcards.mkv}"
+    params:
+        v = "1", \
+        permutations = "5", \
+        title = "Motif enrichment Epromoters vs CapStarrseq_InactiveProm_FDR95_All_samples - mkv = {mkv}", \
+        prefix = os.path.join(MATRIX_ENRICHMENT_DIR, "{motif_db}_motifs_Epromoters_vs_Inactive_Promoters_{mkv}", "{motif_db}_motifs_Epromoters_vs_Inactive_Promoters_{mkv}"), \ 
+        query_merge_header = "Merge", \ 
+        query_HeLa_header = "HeLa", \ 
+        query_K562_header = "K562", \ 
+        control_header = "Inactive_Promoters"
+    shell:
+        'matrix-quality  -v {params.v} -html_title {params.title} -m {input.matrices} -matrix_format transfac '
+        + ' -bgfile {input.bg_model_file} -bg_format oligo-analysis -bg_pseudo 0.01 '
+        + ' -pseudo 1 -archive -o {params.prefix} ' 
+        + ' -seq {params.query_merge_header} {input.fasta_seq_query_merge} -seq_format fasta '
+        + ' -seq {params.query_HeLa_header} {input.fasta_seq_query_HeLa} -seq_format fasta '
+        + ' -seq {params.query_K562_header} {input.fasta_seq_query_K562} -seq_format fasta '
+        + ' -seq {params.control_header} {input.fasta_seq_control} -seq_format fasta '
+        + ' -plot {params.query_merge_header} nwd -plot {params.query_merge_header} occ_proba '
+        + ' -plot {params.query_HeLa_header} nwd -plot {params.query_HeLa_header} occ_proba '
+        + ' -plot {params.query_K562_header} nwd -plot {params.query_K562_header} occ_proba '
+        + ' -plot {params.control_header} nwd -plot {params.control_header} occ_proba '
+        + ' -r_plot'
+
+
+#        'matrix-quality  -v {params.v} -html_title {params.title} -m {input.matrices} -matrix_format transfac -pseudo 1 -seq {params.query_header} {input.fasta_seq_query} -seq_format fasta -seq {params.control_header} {input.fasta_seq_control} -perm {params.query_header} {params.permutations} -perm {params.control_header} {params.permutations} -bgfile {input.bg_model_file} -bg_format oligo-analysis -bg_pseudo 0.01 -archive -o {params.prefix} -plot {params.query_header} nwd -plot {params.query_header} occ_proba -plot {params.control_header} nwd -plot {params.control_header} occ_proba -r_plots'
+
+
+##################################################################
+## Select only the required files to plot the TFBS positional
+## profiles. This is a previous step because is very expensive 
+## to load the full matrix-scan files.
+rule parse_matrix_scan_tables:
+    """ Parse the matrix-scan results to filter those with a specieid P-value and only the columns
+indicating the TFBS location, PSSM name and sequence name.
+        Program: shell script
+        Developper: Jaime Castro <castro@tagc.univ-mrs.fr>
+    """
+    input:
+        os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS, "{promoters}_extended_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}.tab")        
+    output:
+        os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS_PARSED, "{promoters}_extended_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_PARSED.tab")
+    message:
+        " Parsing matrix-scan tables, to plot the TFBSs positional profiles."
+    shell:
+        'grep -v "^;" {input} | awk -F "\t" \'{$2}!="limit" && ({$11} >= 4) {print {$1}"\t"{$3}"\t"({$6}+{$5})/2"\t"{$9}} \'> {output} ;'
+
+
+##################################################################
+## Plot the distribution of TFBSs in 1000 bp upstream/downstream 
+## the TSS in the Active Promoters vs the Inactive Promoters
+rule matches_distribution_plot:
+    """ Measure the enrichment of a motif in a set of sequences (Query vs Control).
+        Program: bin/Plot_matches_extended_promoters.R
+        Developper: Jaime Castro <castro@tagc.univ-mrs.fr>
+    """
+    input:
+        active_promoters_scan = os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS, "parsed_files/{active_promoters}_extended_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_PARSED.tab"), \
+        inactive_promoters_scan = os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS, "parsed_files/CapStarrseq_InactiveProm_FDR95_All_samples_extended_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_PARSED.tab")
+    output:
+        os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS_PLOTS, "parsed_files/{active_promoters}_vs_CapStarrseq_InactiveProm_FDR95_All_samples_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_TFBSs_distribution_in_extended_promoters.pdf")
+    message:
+        " Plot the distribution of TFBSs in extended promoters (-1000 to +1000 relative to TSS) in the {wildcards.active_promoters} (Active) promoters versus the CapStarrseq_InactiveProm_FDR95_All_samples (Inactive Promoters) using a Markov order = {wildcards.mkv}"
+    params:
+        bin_size = "50", \
+        p_val = "1e-4", \
+        prefix = os.path.join(MATRIX_SCAN_DIR_EXTENDED_PROMOTERS_PLOTS, "parsed_files/{active_promoters}_vs_CapStarrseq_InactiveProm_FDR95_All_samples_matrix_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}")
+    shell:
+        'cat bin/Plot_matches_extended_promoters.R | /usr/bin/R --slave --no-save --no-restore --no-environ --args " matrix.scan.active = \'{input.active_promoters_scan}\'; matrix.scan.inactive = \'{input.inactive_promoters_scan}\'; p.val = \'{params.p_val}\'; bin = \'{params.bin_size}\'; prefix = \'{params.prefix}\'"'
+
+
+##################################################################
+rule permute_matrices:
+    """ Permute the columns of a collections of PSSMs.
+        The IC per column is conserved but alter the binding consensus.
+        Program: RSAT convert-matrix
+    """
+    input:
+        lambda wildcards: MOTIF_FILES[wildcards.motif_db]
+    output:
+        os.path.join(MOTIF_DB_DIR, "{motif_db}_permuted.tf")
+    message:
+        " Column Permutation of {wildcards.motif_db} PSSMs."
+    params:
+        v = "2", \
+        perm_nb = "1"
+    shell:
+        'convert-matrix -i {input} -from tf -to tf -perm {params.perm_nb} -o {output}'
+
+##################################################################
+## Distribution of TFBSs in the extended Epromoters
+rule position_Scan:
+    """ Scan the Epromoter extended regions and detect the positionally constrained motifs.
+	This method counts the TFBS and divide the sequences on bins of the same size (50 bp). The total counts of TFBSs is homogeneously distributed across the bins. This distribution is used as expected frequencies in a chi-squared test.
+        Program: RSAT position-scan
+    """
+    input:
+        bg_model_file = lambda wildcards: BG_MODEL_FILES[wildcards.mkv], \
+        fasta_seq = os.path.join(SEQUENCES_DIR, "{promoters}.fasta"), \
+        matrices = lambda wildcards: MOTIF_FILES[wildcards.motif_db]
+    output:
+        os.path.join(POSITION_SCAN_DIR_PROMOTERS, "{promoters}_extended_position_scan_pval_{pval}_{motif_db}_bg_mkv_{mkv}_report.html"")
+    message:
+        " Scanning the promoter sequences of {wildcards.promoters} with the {wildcards.motif_db} motif collection. P-value = {wildcards.pval} . MArkov order = {wildcards.mkv}"
+    params:
+        v = "1", \
+        matrix_format = PSSM_FORMAT, \     
+        seq_format = SEQUENCE_FORMAT
+    shell:
+        'position-scan -v {params.v} -m {input.matrices} -matrix_format {params.matrix_format} -title '' -seq {input.fasta_seq} -seq_format {input.fasta_seq} -bg_input -markov 1 -bin 50 -pval 1e-3 -o position_profile_results/{wildcards.promoters}/50_nt_bin/pval1e-3/{wildcards.promoters}_bin_size_50_pval1e-3'
+
+

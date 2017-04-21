@@ -1,0 +1,682 @@
+"""
+Workflow for capstarseq analysis
+
+Capstarrseq analysis for run170 and rerun of run150 without FPKM filtering.
+Extension: 314
+Mouse mm9
+No filter on input FPKM
+previous CapStarrseq_mSilencers (run 150)
+/gpfs/tgml/reads/fastq/Run_150_NS500-057_12.09.2016_SS_BSoS
+
+DHS_PGK_DNA_library (change name to= mT_DHS_PGK_P5424_rep1)
+input input_plasmid_library (change name to= mT_DHS_PGK_input)
+
+Run 170:
+mT-DHS-PGK-p5424_rep2
+input: input_plasmid_library (mT_DHS_PGK_input) from run 150
+
+mT-DHS-EFIA-p5424_rep1
+mT-DHS-EFIA-p5424_rep2
+mT-DHS-EFIA-p5424_rep3
+input: mT-DHS-EFIA-input
+"""
+
+#from Bio import Entrez
+from snakemake.utils import R # To use R inside rules
+import re
+import os
+import datetime
+import os.path
+import sys
+import csv
+
+# Including global constraints on wildcards$
+include:WDIR+"code/snakemake/wildcard_constraints.snake"
+
+# Including list of ids and parameters
+#include:"code/snakemake/ids_from_fastq_files.snake"
+#include: WDIR+"code/snakemake/var.snake"
+EXP_SAMPLES, = glob_wildcards("data/input/fastq/{id}_1.fastq.gz")
+EXP_TGML, = glob_wildcards("data/input/fastq/{id}/L001_R1_001.fastq.gz")
+EXP_IFN, = glob_wildcards("data/input/fastq/RD_CapSTAR-seq_Lan-Dao_IFN/{id}/L001_R1_001.fastq.gz")
+EXP_RUN107, = glob_wildcards("data/input/fastq/run107_CapSTAR-seq_hpromoter/{id}/L001_R1_001.fastq.gz")
+EXP_RUN146, = glob_wildcards("data/input/fastq/run146_ATAC_Necker/{id}/L001_R1_001.fastq.gz")
+EXP_RUN145, = glob_wildcards("data/input/fastq/run145_ChIPseq_Necker/{id}/L001_R1_001.fastq.gz")
+EXP_RUN149_150, = glob_wildcards("data/input/fastq/run149_150_CapSTAR-seq_hPromoters/{id}/L001_R1_001.fastq.gz")
+EXP_RUN155, = glob_wildcards("data/input/fastq/run155_CapSTAR-seq_mSilencers/{id}/L001_R1_001.fastq.gz")
+
+ID_NECKER = ["run145_ChIPseq_Necker_TH129_EC_ETS1",
+"run145_ChIPseq_Necker_TH129_EC_RUNX1",
+"run145_ChIPseq_Necker_TH129_LC_ETS1",
+"run145_ChIPseq_Necker_TH129_LC_RUNX1",
+"run145_ChIPseq_Necker_TH137_CD34_RUNX1",
+"run145_ChIPseq_Necker_TH139_LC_ETS1",
+"run145_ChIPseq_Necker_TH139_EC_ETS1",
+"run146_ATAC_Necker_TH148_149_CD34pos_1aneg_7neg",
+"run146_ATAC_Necker_TH148_CD34pos_1apos",
+"run146_ATAC_Necker_TH148_LC",
+"run146_ATAC_Necker_TH149_CD34pos_1apos",
+"run146_ATAC_Necker_TH149_LC",
+"run146_ATAC_Necker_TH148_CD34pos_1aneg_7pos",
+"run146_ATAC_Necker_TH148_EC",
+"run146_ATAC_Necker_TH149_EC",
+"run146_ATAC_Necker_UCB98",
+"run146_ATAC_Necker_TH149_CD34pos_1aneg_7pos"]
+
+EXT_CAPSTARSEQ = "314"
+EXT_ATAC = "180"
+EXT_CHIPSEQ = "300"
+EXT_IGMM = "437"
+
+localrules: targets, ln_seq_id_to_sample_id_bam
+
+rule target:
+    threads: 1
+    message: "-- Rule target completed. --"
+    input:
+        # bamCoverage ext314 (bigiwig)
+        ## with removed duplicates:
+        expand("data/processed/10_314/7/5_mm9/3/2/1/{id}.bw",
+            id=[
+                "run155_CapSTAR-seq_mSilencers_mT_DHS_PGK_P5424_rep1",
+                "run155_CapSTAR-seq_mSilencers_mT_DHS_PGK_input",
+                "run170_CapSTAR-seq_mSilencers_mT_DHS_PGK_P5424_rep2",
+                "run170_CapSTAR-seq_mT_DHS_EFIA_P5424_rep1",
+                "run170_CapSTAR-seq_mT_DHS_EFIA_P5424_rep2",
+                "run170_CapSTAR-seq_mT_DHS_EFIA_P5424_rep3",
+                "run170_CapSTAR-seq_mT_DHS_EFIA_input"]),
+        # FoldChange FPKM on CRMs
+        ## with removed duplicates:
+        "data/processed/19_mTDHS/14_314/13/7/5_mm9/3/2/1/run155_CapSTAR-seq_mSilencers_mT_DHS_PGK_P5424_rep1_over_run155_CapSTAR-seq_mSilencers_mT_DHS_PGK_input.allData.tsv",
+        "data/processed/19_mTDHS/14_314/13/7/5_mm9/3/2/1/run170_CapSTAR-seq_mSilencers_mT_DHS_PGK_P5424_rep2_over_run155_CapSTAR-seq_mSilencers_mT_DHS_PGK_input.allData.tsv",
+        "data/processed/19_mTDHS/14_314/13/7/5_mm9/3/2/1/run170_CapSTAR-seq_mT_DHS_EFIA_P5424_rep1_over_run170_CapSTAR-seq_mT_DHS_EFIA_input.allData.tsv",
+        "data/processed/19_mTDHS/14_314/13/7/5_mm9/3/2/1/run170_CapSTAR-seq_mT_DHS_EFIA_P5424_rep2_over_run170_CapSTAR-seq_mT_DHS_EFIA_input.allData.tsv",
+        "data/processed/19_mTDHS/14_314/13/7/5_mm9/3/2/1/run170_CapSTAR-seq_mT_DHS_EFIA_P5424_rep3_over_run170_CapSTAR-seq_mT_DHS_EFIA_input.allData.tsv"
+    shell:
+        """
+        WDIR=`pwd`
+        mkdir -p result/capstarseq_2017_01_05
+        cd result/capstarseq_2017_01_05
+        ln -s ../../data/processed/10_314/7/5_mm9/3/2/1/ bw
+        ln -s ../../data/processed/19_mTDHS/14_314/13/7/5_mm9/3/2/1/ tab
+        """
+
+rule r1_gunzip_fastq:
+    input: "data/input/fastq/{id}.gz"
+    output: "data/processed/1/{id}"
+    shell:"""
+    gunzip --stdout {input} > {output}
+    """
+
+rule r2_merge_lanes_single_end_nextseq500:
+    input: fastq=expand("data/processed/{{id}}/L00{lanes}_R1_001.fastq", lanes=["1","2","3","4"])
+    output: fastq="data/processed/2/{id}.fastq"
+    shell:"""
+    cat {input.fastq} > {output.fastq}
+    """
+
+rule r3_sickle_single_end:
+    input:
+        fastq="data/processed/{id}.fastq",
+        sickle="soft/sickle/sickle"
+    output:
+        fastq="data/processed/3/{id}.fastq"
+    shell:"""
+    {input.sickle} se -f {input.fastq} -t sanger -q 20 -o {output.fastq}
+    """
+
+rule r4_sickle_paired_end:
+    input:
+        m1="data/processed/{id}_1.fastq",
+        m2="data/processed/{id}_2.fastq"
+    output:
+        m1="data/processed/4/{id}_1.fastq",
+        m2="data/processed/4/{id}_2.fastq",
+        single="data/processed/4/{id}_single.fastq"
+    shell:"""
+    sickle pe -f {input.m1} -r {input.m2} \
+        -o {output.m1} -p {output.m2} \
+        -s {output.single} \
+        -t sanger -q 20
+    """
+
+rule r5_bowtie2_single_end:
+    """
+    Produce aligned read in bam format from fastq files.
+    
+    Created:
+    2016-08-25 13:54 - New Salva's fastq are single-ends.
+    
+    """
+    input:
+        fastq="data/processed/{id}.fastq",
+        bowtie2="soft/bowtie2-2.2.9/bowtie2",
+        index="annotation/processed/index/bowtie2/{index}"
+    output:
+        sam="data/processed/5_{index}/{id}.sam",
+        unmapped_single="data/processed/5_{index}/{id}_unmapped_single.fastq.gz",
+        bowtie2log="data/processed/5_{index}/{id}_bowtie2.log"
+    threads: 16
+    shell: """
+    {input.bowtie2} -p {threads} -x {input.index} \
+        -U {input.fastq} \
+        --un-gz {output.unmapped_single} \
+        -S {output.sam} \
+        2> {output.bowtie2log}
+    """
+
+rule r6_bowtie2_paired_end:
+    """
+    Produce aligned read in bam format from fastq files.
+    
+    Modified:
+    2016-02-02 11:50 - index can now be mm9 or mm10
+    2016-02-04 11:45 - next step sam to bam is now in a different rule.
+    
+    TODO maybe: run -> experiment to allow wider rule use for samples from GEO.
+    """
+    input:
+        mate1="data/processed/sickle/{run}/{sample}_1.fastq",
+        mate2="data/processed/sickle/{run}/{sample}_2.fastq",
+        bowtie2="soft/bowtie2-2.2.9/bowtie2",
+        index="annotation/processed/index/bowtie2/{index}"
+    output:
+        sam="data/processed/bowtie2/{index}/{run}/{sample}.sam",
+        unmapped_single="data/processed/bowtie2/{index}/{run}/{sample}_unmapped_single.fastq.gz",
+        unmapped_pair_base="data/processed/bowtie2/{index}/{run}/{sample}_unmapped_pair.fastq.gz",
+        unmapped_pair1="data/processed/bowtie2/{index}/{run}/{sample}_unmapped_pair.fastq.1.gz",
+        unmapped_pair2="data/processed/bowtie2/{index}/{run}/{sample}_unmapped_pair.fastq.2.gz",
+        bowtie2log="data/processed/bowtie2/{index}/{run}/{sample}_bowtie2.log"
+    threads: 16
+    shell: """
+    {input.bowtie2} -p {threads} -x {input.index} \
+        -1 {input.mate1} -2 {input.mate2} \
+        --un-gz {output.unmapped_single} \
+        --un-conc-gz {output.unmapped_pair_base} \
+        -S {output.sam} \
+        2> {output.bowtie2log}
+    
+    # Touching this output file because bowtie create only pair1 and 2 when given pair_base
+    # touch {output.unmapped_pair_base}
+    touch {output}
+    """
+
+rule r7_samtools_sam_to_bam:
+    """
+    Created: 2016-02-04 11:40
+    Check that: Requiring many threads is not that useful for this rule because samtools do not fully use them anyway.
+    """
+    input:
+        sam="data/processed/{id}.sam",
+        samtools="soft/samtools-1.3.1/samtools"
+    output:
+        bam="data/processed/7/{id}.bam",
+        bai="data/processed/7/{id}.bam.bai",
+        flagstat="data/processed/7/{id}.flagstat.txt"
+    threads: 4
+    shell:"""
+    {input.samtools} view -bSh -@ {threads} {input.sam} | \
+        {input.samtools} sort -@ {threads} -m 10G -o {output.bam} -
+    {input.samtools} index {output.bam}
+    {input.samtools} flagstat {output.bam} > {output.flagstat}
+    """
+
+rule r8_picard_MarkDuplicates:
+    input:
+        picard="soft/miniconda/envs/py35/bin/picard",
+        samtools="soft/samtools-1.3.1/samtools",
+        bam="data/processed/{id}.bam",
+        bai="data/processed/{id}.bam.bai"
+    output:
+        bam="data/processed/8/{id}.bam",
+        bai="data/processed/8/{id}.bam.bai",
+        metrics="data/processed/8/{id}.metrics.txt",
+        flagstat="data/processed/8/{id}.flagstat.txt"
+    shell:"""
+    {input.picard} MarkDuplicates I={input.bam} O={output.bam} M={output.metrics} REMOVE_DUPLICATES=true
+    {input.samtools} index {output.bam}
+    {input.samtools} flagstat {output.bam} > {output.flagstat}
+    """
+
+def seq_id_to_sample_id_for_ln_bam(wildcards):
+    """
+    Created: 2016-05-27
+    """
+    sample = wildcards['sample']
+    #print(sample)
+    exp = wildcards['exp']
+    index = wildcards['index']
+    ext = wildcards['ext']
+    #print(ext)
+    d={}
+    for row in csv.DictReader(open('code/snakemake/samples.tsv'),delimiter='\t'):
+        d[row['Sample_name']] = row['File_name']
+    return "data/processed/samtools/sam_to_bam/" + index + "/" + exp + "/" + d[sample] + "." + ext
+
+
+rule r9_deepTools_bamCoverage:
+    """
+    Modified: 2016-03-15 13h14
+    Modified: 2016-04-25 Added minimum quality and removed extension of reads to 140pb.
+    This rule use DeepTools bamCoverage to transfrom bam to bigWig.
+    """
+    input:
+        soft="soft/miniconda/envs/py27/bin/bamCoverage",
+        bam="data/processed/{id}.bam"
+    output: bw="data/processed/9/{id}.bw"
+    threads: 16
+    shell:"""
+    {input.soft} --bam {input.bam} \
+        --numberOfProcessors {threads} --binSize 10 \
+        --minMappingQuality 30 \
+        --normalizeUsingRPKM -o {output.bw}
+    """
+
+rule r10_deepTools_bamCoverage_extendReads:
+    """
+    Modified: 2016-03-15 13h14
+    Modified: 2016-04-25 Added minimum quality and removed extension of reads to 140pb.
+    This rule use DeepTools bamCoverage to transfrom bam to bigWig.
+    """
+    input:
+        soft="soft/miniconda/envs/py27/bin/bamCoverage",
+        bam="data/processed/{id}.bam"
+    output: bw="data/processed/10_{extReads}/{id}.bw"
+    threads: 16
+    shell:"""
+    {input.soft} --bam {input.bam} \
+        --numberOfProcessors {threads} --binSize 10 \
+        --extendReads {wildcards.extReads} \
+        --minMappingQuality 30 \
+        --normalizeUsingRPKM -o {output.bw}
+    """
+
+rule r11_kentUtils_bigWigToWig:
+    input:
+        soft="soft/kentUtils/bin/linux.x86_64/bigWigToWig",
+        bw="data/processed/{id}.bw"
+    output: wig="data/processed/11/{id}.wig"
+    shell:"""
+    {input.soft} {input.bw} {output.wig}
+    """
+
+rule r12_deepTools_bamCompare:
+    """
+    Generic rule to produce bw file of log2ratio of two samples.
+
+    Modified: 2016-03-15 18h19
+    """
+    input:
+        chip=        "data/processed/{id}/{id_chip}.bam",
+        chip_bai=    "data/processed/{id}/{id_chip}.bam.bai",
+        control=     "data/processed/{id}/{id_control}.bam",
+        control_bai= "data/processed/{id}/{id_control}.bam.bai",
+        bamCompare="soft/miniconda/envs/py27/bin/bamCompare"
+    output:"data/processed/12/{id}/{id_chip}_Log2ratioOver_{id_control}.bw"
+    threads: 16
+    shell:"""
+    {input.bamCompare} --bamfile1 {input.chip} --bamfile2 {input.control} --numberOfProcessors {threads} --binSize 10 --numberOfProcessors {threads} --ratio log2 --scaleFactorsMethod readCount -o {output}
+    """
+
+rule r13_bedtools_bamtobed:
+    input:
+        bedtools="soft/miniconda/envs/py35/bin/bedtools",
+        bam="data/processed/{id}.bam"
+    output: bed="data/processed/13/{id}.bed"
+    shell:"""
+    {input.bedtools} bamtobed -i {input.bam} > {output.bed}
+    """
+
+rule r14_awk_extReads:
+    """
+    Taken from Aurelien's workflow.
+    Added double escape for tabulation in awk.
+    Added check condition if chromosomes are like "chr3" or only "3".
+    """
+    input:  bed="data/processed/{id}.bed"
+    output: bed="data/processed/14_{extReads}/{id}.bed"
+    shell:"""
+    size_fragment={wildcards.extReads}
+    awk -v FRAG_SIZE=$size_fragment 'BEGIN{{ OFS="\\t" }}{{
+        if ($1 ~ "^chr*"){{
+            if ($6 == "+"){{ $3 = $2 + FRAG_SIZE ; print $0 }}
+            else if ($6 == "-"){{ $2 = $3 - FRAG_SIZE ; if ($2 > 0) {{ print $0 }} }}
+            }}
+        else {{
+            if ($6 == "+"){{ $3 = $2 + FRAG_SIZE ; print "chr"$0 }}
+            else if ($6 == "-"){{ $2 = $3 - FRAG_SIZE ; if ($2 > 0) {{ print "chr"$0 }} }}
+            }}
+        }}' {input.bed} > {output.bed}
+    """
+
+rule r15_bedtools_coverage_fpkm_input:
+    input:
+        bedtools="soft/miniconda/envs/py35/bin/bedtools",
+        bed_reads="data/processed/{id_bam_to_bed}/{id}.bed",
+        bed_crms="data/input/bed/crms/{crm_type}.bed",
+        flagstat="data/processed/{id}.flagstat.txt"
+    output:
+        tsv_cov_unfiltered="data/processed/15_{crm_type}/{id_bam_to_bed}/{id}.coverage_unfiltered.tsv",
+        tsv_fpkm="data/processed/15_{crm_type}/{id_bam_to_bed}/{id}.FPKM.tsv",
+        tsv_fpkm_unfiltered="data/processed/15_{crm_type}/{id_bam_to_bed}/{id}.FPKM_unfiltered.tsv",
+        bed_crms="data/processed/15_{crm_type}/{id_bam_to_bed}/{id}.filtered_CRMs.bed"
+    params: fpkm_threshold='0'
+    wildcard_constraints: id_bam_to_bed="13|14_[0-9]+/13"
+    run:
+        shell("""# 1. Coverage
+        {input.bedtools} coverage -a {input.bed_crms} -b {input.bed_reads} > {output.tsv_cov_unfiltered}
+        """)
+        shell("""# 2. Coverage to FPKM
+        nb_mReads=`grep "mapped (" {input.flagstat} | awk '{{print $1}}'`
+        awk -v NB_READS=$nb_mReads '{{ fpkm = ($(NF-3) / (($(NF-1))/1000)) / (NB_READS/1000000) ; print $1"\\t"$2"\\t"$3"\\t"$4"\\t"fpkm }}' {output.tsv_cov_unfiltered} > {output.tsv_fpkm_unfiltered}
+        """)
+        R("""
+        # 3. CRM filtering based on FPKM threshold (input FPKM < 1)
+        fpkm_all <- read.table('{output.tsv_fpkm_unfiltered}', stringsAsFactors=F)
+        idx <- which(fpkm_all[,5] >= {params.fpkm_threshold})
+        fpkm_all <- fpkm_all[idx,]
+        write.table(fpkm_all, file='{output.tsv_fpkm}', quote=F, row.names=F, col.names=F, sep='\t')
+
+        # 4. Producing filtered CRM file
+        crms_all <- read.table('{input.bed_crms}', stringsAsFactors=F)
+        #fpkm_all <- read.table('{output.tsv_fpkm}', stringsAsFactors=F)
+        str_crms_all <- apply(crms_all[,1:3], 1, paste, collapse='_')
+        str_fpkm_all <- apply(fpkm_all[,1:3], 1, paste, collapse='_')
+        idx <- match(str_fpkm_all, str_crms_all)
+        write.table(crms_all[idx,], file='{output.bed_crms}', quote=F, row.names=F, col.names=F, sep='\t')
+        """)
+
+def input_crms_bedtools_coverage_fpkm_sample(wildcards):
+    crm_type = wildcards['crm_type']
+    index = wildcards['index']
+    extReads = wildcards['extReads']
+    exp = wildcards['exp']
+
+    if exp == 'run149_150_CapSTAR-seq_hPromoters':
+        exp_sample_input = "run107_CapSTAR-seq_hpromoter/Input"
+        
+    elif exp == 'run107_CapSTAR-seq_hpromoter':
+        exp_sample_input = "run107_CapSTAR-seq_hpromoter/Input"
+        
+    elif exp == 'run155_CapSTAR-seq_mSilencers':
+        exp_sample_input = "run155_CapSTAR-seq_mSilencers/mT_DHS_PGK_input"
+
+    bed_crms="data/processed/bedtools/coverage/fpkm_input/CRMs_"+crm_type+"/extReads"+extReads+"/"+index+"/"+exp_sample_input+"/filtered_CRMs.bed"
+    return bed_crms
+
+rule r16_bedtools_coverage_fpkm_sample:
+    input:
+        bedtools="soft/miniconda/envs/py35/bin/bedtools",
+        bed_reads="data/processed/{id_bam_to_bed}/{id}/{id_sample}.bed",
+        bed_crms="data/processed/15_{crm_type}/{id_bam_to_bed}/{id}/{id_input}.filtered_CRMs.bed",
+        flagstat="data/processed/{id}/{id_sample}.flagstat.txt"
+    output:
+        tsv_cov="data/processed/16_{crm_type}/{id_bam_to_bed}/{id}/{id_sample}_on_{id_input}_filtered_CRMs.coverage.tsv",
+        tsv_fpkm="data/processed/16_{crm_type}/{id_bam_to_bed}/{id}/{id_sample}_on_{id_input}_filtered_CRMs.FPKM.tsv"
+    shell:"""
+    # 1. Coverage
+    {input.bedtools} coverage -a {input.bed_crms} -b {input.bed_reads} > {output.tsv_cov}
+
+    # 2. Coverage to FPKM
+    nb_mReads=`grep "mapped (" {input.flagstat} | awk '{{print $1}}'`
+    awk -v NB_READS=$nb_mReads '{{ fpkm = ($(NF-3) / (($(NF-1))/1000)) / (NB_READS/1000000) ; print $1"\\t"$2"\\t"$3"\\t"$4"\\t"fpkm }}' {output.tsv_cov} > {output.tsv_fpkm}
+    """
+
+def input_r_fold_change(wildcards):
+    exp = wildcards['exp']
+    crm_type = wildcards['crm_type']
+    extReads = wildcards['extReads']
+    index = wildcards['index']
+
+    if exp == 'run149_150_CapSTAR-seq_hPromoters':
+        exp_sample_input = "run107_CapSTAR-seq_hpromoter/Input"
+    
+    elif exp == 'run107_CapSTAR-seq_hpromoter':
+        exp_sample_input = "run107_CapSTAR-seq_hpromoter/Input"
+
+    elif exp == 'run155_CapSTAR-seq_mSilencers':
+        exp_sample_input = "run155_CapSTAR-seq_mSilencers/mT_DHS_PGK_input"
+
+    else:
+        print('add condition to input_r_fold_change function')
+
+    path_input = ''.join(["data/processed/bedtools/coverage/fpkm_input/CRMs_", crm_type, "/extReads", extReads, "/", index, "/", exp_sample_input, "/FPKM.tsv"])
+    return path_input
+
+
+rule r17_fold_change:
+    """
+    Calcul des Fold Change dans les echantillons
+    """
+    input:
+        tsv_fpkm_sample = "data/processed/16_{crm_type}/{id}/{id_sample}_on_{id_input}_filtered_CRMs.FPKM.tsv",
+        tsv_fpkm_input = "data/processed/15_{crm_type}/{id}/{id_input}.FPKM.tsv"
+    output:
+        fc = "data/processed/17_{crm_type}/{id}/{id_sample}_over_{id_input}.foldChange.tsv"
+    run:
+        R("""
+        fpkm_input <- read.table('{input.tsv_fpkm_input}', stringsAsFactors=F)
+        fpkm_sample <- read.table('{input.tsv_fpkm_sample}', stringsAsFactors=F)
+        fc <- fpkm_sample[,5] / fpkm_input[,5]
+        dat <- data.frame(fpkm_sample[,1:4], fc)
+        write.table(dat, file='{output.fc}', quote=F, row.names=F, col.names=F, sep='\t')
+        """)
+
+rule r18_grouping_crms:
+    """Creation des groupes de CRMs (inactifs, actifs) sur la base des Fold Change et des categories"""
+    input:
+        fc = "data/processed/{id}/{id_sample}_over_{id_input}.foldChange.tsv"
+    output:
+        groups = "data/processed/18/{id}/{id_sample}_over_{id_input}.inflexionPointGroups.tsv",
+        pdf = "data/processed/18/{id}/{id_sample}_over_{id_input}.inflexionPointGroups.pdf"
+    params:
+        outdir = "data/processed/18/{id}/",
+        th_negative_1 = "0.05",
+        th_negative_2 = "0.01"
+    run:
+        R("""
+        dat <- read.table('{input.fc}', stringsAsFactors=F)
+    
+        ## CALCUL DU SEUIL EN FONCTION D'UN FDR
+        for (fdr in c({params.th_negative_1},{params.th_negative_2})) {{
+            # Determination du seuil
+            idx <- which(dat[,4] == 'Negative')
+            # Skipping FDR computation if no Negative set is provided.
+            if (length(idx)!=0) {{
+                P <- ecdf(dat[idx,5])
+                th_FoldChange <- quantile(P,probs=1-fdr)
+
+                # identification des regions actives/inactives
+                idx <- which(dat[,5] >= th_FoldChange)
+                groups <- rep('Inactive',nrow(dat))
+                groups[idx] <- 'Active'
+                groups[which(is.na(dat[,5]))] <- 'NA'
+                
+                pdf(paste('{params.outdir}/Groups.FDR=',fdr,'.pdf',sep=''))
+                par(mfrow=c(2,2))
+                
+                #- boxplot en fonction des categories
+                categories <- unique(dat[,4])
+                fc <- list() ; lfc <- list()
+                for (category in categories) {{
+                    idx <- which(dat[,4] == category)
+                    fc[[category]] <- dat[idx,5]
+                    lfc[[category]] <- log2(dat[idx,5])
+                }}
+                colors <- rep('lightgrey',length(categories))
+                if ('Random' %in% categories) {{ colors[which(categories == 'Random')] <- 'darkblue' }}
+                if ('Positive' %in% categories) {{ colors[which(categories == 'Positive')] <- 'darkgreen' }}
+                if ('Negative' %in% categories) {{ colors[which(categories == 'Negative')] <- 'darkred' }}
+                boxplot(fc, pch=20, col=colors, main='Fold Change of categories', ylab='Fold Change')
+                text(length(categories), 0.9*max(dat[,5]), labels=sprintf('Threshold :\n%3.2f',th_FoldChange), col='red')
+                boxplot(lfc, pch=20, col=colors, main='Fold Change of categories', ylab='Fold Change [log2]')
+                abline(h=log2(th_FoldChange), col='red', lty='dashed')
+
+                
+                #- ranked genomic regions based on their Fold Change
+                plot(sort(dat[-which(dat[,4]=='Random' | dat[,4]=='Negative'),5]), pch=20, main='Activity of genomic regions\n(Random/Negative not included)', ylab='Fold Change', xlab='Ranked genomic regions')
+                idx <- which(dat[,5] >= th_FoldChange & dat[,4] != 'Random' & dat[,4] != 'Negative')
+                abline(v=nrow(dat)-length(idx), col='red', lty='dashed')
+                text(nrow(dat)-length(idx), 0.9*max(dat[,5]), labels=length(idx), pos=2, offset=0, col='red')
+                idx <- which(dat[,5] < th_FoldChange & dat[,4] != 'Random' & dat[,4] != 'Negative')
+                text(length(idx)/2, 0.9*max(dat[,5]), labels=length(idx), col='black')
+        
+                #- info sur l'analyse
+                plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+                text(x=0.5, y=1, 'INFORMATION', cex=1.5, pos=1, offset=0, col = 'black')
+                text(x=0, y=0.70, '{wildcards.id_sample}', pos=4, offset=0, col = 'black')
+                text(x=0, y=0.60, paste('Method: FDR=',fdr,sep=''), pos=4, offset=0, col = 'black')            
+                dev.off()            
+                
+                dat_groups <- data.frame(dat[,1:4], groups)
+                write.table(dat_groups, file=paste('{params.outdir}/Groups.FDR=',fdr,'.grp',sep=''), quote=F, row.names=F, col.names=F, sep='\t')
+            }}
+        }}
+        
+        
+        ## CALCUL DU SEUIL EN FONCTION DU POINT D'INFLEXION
+        
+        #---  code from ROSE tool to dertermine super-enhancers  ---#
+        #--
+        #This function calculates the cutoff by sliding a diagonal line and finding where it is tangential (or as close as possible)
+        calculate_cutoff <- function(inputVector, drawPlot=TRUE,...){{
+            inputVector <- sort(inputVector)
+            inputVector[inputVector<0]<-0 #set those regions with more control than ranking equal to zero
+            slope <- (max(inputVector)-min(inputVector))/length(inputVector) #This is the slope of the line we want to slide. This is the diagonal.
+            xPt <- floor(optimize(numPts_below_line,lower=1,upper=length(inputVector),myVector= inputVector,slope=slope)$minimum) #Find the x-axis point where a line passing through that point has the minimum number of points below it. (ie. tangent)
+            y_cutoff <- inputVector[xPt] #The y-value at this x point. This is our cutoff.
+    
+            if(drawPlot){{  #if TRUE, draw the plot
+                plot(1:length(inputVector), inputVector,type="l",...)
+                b <- y_cutoff-(slope* xPt)
+                abline(v= xPt,h= y_cutoff,lty=2,col=8)
+                points(xPt,y_cutoff,pch=16,cex=0.9,col=2)
+                abline(coef=c(b,slope),col=2)
+                title(paste("x=",xPt,"\ny=",signif(y_cutoff,3),"\nFold over Median=",signif(y_cutoff/median(inputVector),3),"x\nFold over Mean=",signif(y_cutoff/mean(inputVector),3),"x",sep=""))
+                axis(1,sum(inputVector==0),sum(inputVector==0),col.axis="pink",col="pink") #Number of regions with zero signal
+            }}
+            return(list(absolute=y_cutoff,overMedian=y_cutoff/median(inputVector),overMean=y_cutoff/mean(inputVector)))
+        }}
+
+        #this is an accessory function, that determines the number of points below a diagnoal passing through [x,yPt]
+        numPts_below_line <- function(myVector,slope,x){{
+            yPt <- myVector[x]
+            b <- yPt-(slope*x)
+            xPts <- 1:length(myVector)
+            return(sum(myVector<=(xPts*slope+b)))
+        }}
+        #--
+        #---  code from ROSE tool to dertermine super-enhancers  ---#
+
+        # determination du seuil
+        idx <- which(dat[,4] != 'Negative' & dat[,4] != 'Random')
+        th_FoldChange <- calculate_cutoff(dat[idx,5], drawPlot=F)$absolute
+
+        # identification des regions actives/inactives
+        idx <- which(dat[,5] >= th_FoldChange)
+        groups <- rep('Inactive',nrow(dat))
+        groups[idx] <- 'Active'
+        groups[which(is.na(dat[,5]))] <- 'NA'
+
+        pdf('{output.pdf}')
+        par(mfrow=c(2,2))
+
+        #- boxplot en fonction des categories
+        categories <- unique(dat[,4])
+        fc <- list() ; lfc <- list()
+        for (category in categories) {{
+            idx <- which(dat[,4] == category)
+            fc[[category]] <- dat[idx,5]
+            lfc[[category]] <- log2(dat[idx,5])
+        }}
+        colors <- rep('lightgrey',length(categories))
+        if ('Random' %in% categories) {{ colors[which(categories == 'Random')] <- 'darkblue' }}
+        if ('Positive' %in% categories) {{ colors[which(categories == 'Positive')] <- 'darkgreen' }}
+        if ('Negative' %in% categories) {{ colors[which(categories == 'Negative')] <- 'darkred' }}
+        boxplot(fc, pch=20, col=colors, main='Fold Change of categories', ylab='Fold Change')
+        text(length(categories), 0.9*max(dat[,5]), labels=sprintf('Threshold :\n%3.2f',th_FoldChange), col='red')
+        boxplot(lfc, pch=20, col=colors, main='Fold Change of categories', ylab='Fold Change [log2]')
+        abline(h=log2(th_FoldChange), col='red', lty='dashed')
+
+        #- ranked genomic regions based on their Fold Change
+        plot(sort(dat[-which(dat[,4]=='Random' | dat[,4]=='Negative'),5]), pch=20, main='Activity of genomic regions\n(Random/Negative not included)', ylab='Fold Change', xlab='Ranked genomic regions')
+        idx <- which(dat[,5] >= th_FoldChange & dat[,4] != 'Random' & dat[,4] != 'Negative')
+        abline(v=nrow(dat)-length(idx), col='red', lty='dashed')
+        text(nrow(dat)-length(idx)/2, 0.9*max(dat[,5]), labels=length(idx), pos=2, offset=0, col='red')
+        idx <- which(dat[,5] < th_FoldChange & dat[,4] != 'Random' & dat[,4] != 'Negative')
+        text(length(idx)/2, 0.9*max(dat[,5]), labels=length(idx), col='black')
+        
+        #- info sur l'analyse
+        plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+        text(x=0.5, y=1, 'INFORMATION', cex=1.5, pos=1, offset=0, col = 'black')
+        text(x=0, y=0.70, '{wildcards.id_sample}', pos=4, offset=0, col = 'black')
+        text(x=0, y=0.60, 'Method: Inflexion point', pos=4, offset=0, col = 'black')
+        dev.off()            
+
+        dat <- data.frame(dat[,1:4], groups)
+        write.table(dat, file='{output.groups}', quote=F, row.names=F, col.names=F, sep='\t')
+        """)
+
+rule r19_merge_all_data:
+    input:
+        fpkm = "data/processed/16_{crm_type}/{id}/{id_sample}_on_{id_input}_filtered_CRMs.FPKM.tsv",
+        fpkm_input = "data/processed/15_{crm_type}/{id}/{id_input}.FPKM.tsv",
+        fc = "data/processed/17_{crm_type}/{id}/{id_sample}_over_{id_input}.foldChange.tsv",
+        group = "data/processed/18/17_{crm_type}/{id}/{id_sample}_over_{id_input}.inflexionPointGroups.tsv"
+    output:
+        "data/processed/19_{crm_type}/{id}/{id_sample}_over_{id_input}.allData.tsv"
+    params:
+    run:
+        R("""
+        fpkm <- read.table('{input.fpkm}', stringsAsFactors=F)
+        fpkm_input <- read.table('{input.fpkm_input}', stringsAsFactors=F)
+        fc <- read.table('{input.fc}', stringsAsFactors=F)
+        group <- read.table('{input.group}', stringsAsFactors=F)
+       
+        dat <- data.frame(fpkm, fpkm_input[,5], fc[,5], group[,5])
+        #group_labels <- sapply(strsplit(group_files,'\\\.'), function(x){{ nb=length(x) ; return(paste('group_',x[nb-2],'.',x[nb-1],sep='')) }})
+        colnames(dat)[1:8] <- c('chr','start','end','category','fpkm','fpkm_input','fold_change','group_inflexionPoint')
+        
+        #if (file.exists('data/CRMs/CRMs_geneAssociation.bed_notOrdered') == TRUE) {{
+        #    genes <- read.table('data/CRMs/CRMs_geneAssociation.bed_notOrdered', stringsAsFactors=F)
+        #    str_fpkm <- apply(fpkm[,1:3],1,paste,collapse='_')
+        #    str_genes <- apply(genes[,1:3],1,paste,collapse='_')
+        #    idx <- match(str_fpkm, str_genes)
+        #    genes <- genes[idx,]
+        #    dat <- data.frame(dat, genes=genes[,4], location=genes[,5])
+        #}}
+
+        write.table(dat, file='{output}', quote=F, row.names=F, col.names=T, sep='\t')
+        """)
+
+rule fastQC:
+    """
+    Run fastQC control analysis on trimmed data.
+    """
+    input:
+        fastq="data/processed/{source}/{exp_sample}.fastq",
+        fastqc="soft/FastQC/fastqc"
+    output: report="result/fastqc/{source, sickle|fastq}/{exp_sample}/"
+    threads: 1
+    shell:"""
+    {input.fastqc} --quiet --outdir {output.report} -f fastq {input.fastq}
+    """
+
+rule fastQC_bam:
+    """
+    Run fastQC control analysis on aligned data.
+    source="samtools/sam_to_bam/{index}/"
+    """
+    input:
+        bam="data/processed/{source}/{index}/{exp_sample}.bam",
+        fastqc="soft/FastQC/fastqc"
+    output: report="result/fastqc/{source, samtools/sam_to_bam|picard/MarkDuplicates}/{index}/{exp_sample}/"
+    threads: 1
+    shell:"""
+    mkdir --parents {output.report}
+    {input.fastqc} --quiet --outdir {output.report} -f bam {input.bam}
+    """
+
+# Including rules in the workflow
+include: WDIR+"code/snakemake/rules/install_softs.rules"
+

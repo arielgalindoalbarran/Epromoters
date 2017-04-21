@@ -1,0 +1,329 @@
+
+ID_PROM=["CapStarrseq_Active_Prom_Hela_merge_IP",\
+        "CapStarrseq_Active_Prom_K562_merge_IP",\
+        "CapStarrseq_InactiveProm_FDR95_All_samples"]
+
+ID_PEAKS, = glob_wildcards("DATA/peaks/{id}.bed")
+
+rule capstarrseq_txt_to_bed:
+    """
+    Created: 2016-02-23
+    Trimming capstarrseq txt files so Bedtools intersect is able to see it as a bed file
+    """
+    input:  txt="DATA/SalvaWork/{id_prom}.txt"
+    output: bed="DATA/processed/capstarrseq_txt_to_bed/{id_prom}.bed"
+    threads: 1
+    shell: """
+    cut -f1-3 {input.txt} | tail -n+2 > {output.bed}
+    """
+
+rule merge_peaks:
+    """
+    Created: 2016-02-25
+    """
+    input:  K562_H3K4me1=expand("DATA/peaks/peaks_ENCODE_K562_H3K4me1_ENCFF002EM{encode_suffix}.bed", encode_suffix=["X","Z"]),\
+            K562_H3K4me2=expand("DATA/peaks/peaks_ENCODE_K562_H3K4me2_ENCFF002EN{encode_suffix}.bed", encode_suffix=["B","D"]),\
+            K562_H3K4me3=expand("DATA/peaks/peaks_ENCODE_K562_H3K4me3_ENCFF002EN{encode_suffix}.bed", encode_suffix=["F","H"]),\
+            K562_H3K27ac=expand("DATA/peaks/peaks_ENCODE_K562_H3K27ac_ENCFF002EM{encode_suffix}.bed", encode_suffix=["T","V"]),\
+            K562_POLR2A=expand("DATA/peaks/peaks_ENCODE_K562_POLR2A_ENCFF002EN{encode_suffix}.bed", encode_suffix=["J","L","N"]),\
+            K562_RAD21=expand("DATA/peaks/peaks_ENCODE_K562_RAD21_ENCFF002EN{encode_suffix}.bed", encode_suffix=["P","R","T"]),\
+            Hela_PolII=expand("DATA/peaks/peaks_Tang_Hela_PolII_ENCFF001UF{encode_suffix}.bed", encode_suffix=["A","B"]),\
+            Hela_P300="DATA/peaks/peaks_Kuznetsova_Hela_P300_1.bed",\
+            Hela_CTCF="DATA/peaks/peaks_Tang_Hela_CTCF.bed"
+    output: K562_H3K4me1="DATA/peaks/merge/peaks_K562_H3K4me1.bed",\
+            K562_H3K4me2="DATA/peaks/merge/peaks_K562_H3K4me2.bed",\
+            K562_H3K4me3="DATA/peaks/merge/peaks_K562_H3K4me3.bed",\
+            K562_H3K27ac="DATA/peaks/merge/peaks_K562_H3K27ac.bed",\
+            K562_POLR2A="DATA/peaks/merge/peaks_K562_POLR2A.bed",\
+            K562_RAD21="DATA/peaks/merge/peaks_K562_RAD21.bed",\
+            Hela_PolII="DATA/peaks/merge/peaks_Hela_PolII.bed",\
+            Hela_P300="DATA/peaks/merge/peaks_Hela_P300.bed",\
+            Hela_CTCF="DATA/peaks/merge/peaks_Hela_CTCF.bed"
+    threads: 1
+    shell: """
+    cat {input.K562_H3K4me1} > {output.K562_H3K4me1}
+    cat {input.K562_H3K4me2} > {output.K562_H3K4me2}
+    cat {input.K562_H3K4me3} > {output.K562_H3K4me3}
+    cat {input.K562_H3K27ac} > {output.K562_H3K27ac}
+    cat {input.K562_POLR2A} > {output.K562_POLR2A}
+    cat {input.K562_RAD21} > {output.K562_RAD21}
+    cat {input.Hela_PolII} > {output.Hela_PolII}
+    cat {input.Hela_P300} > {output.Hela_P300}
+    cat {input.Hela_CTCF} > {output.Hela_CTCF}
+    """
+
+rule bedtools_intersect_peak_prom_chiapet:
+    """
+    Created: 2016-02-23
+
+    ip="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_interacting_promoters.bed",\
+    """
+    input:  peak_bed="DATA/peaks/{id_peaks}.bed",\
+            prom_bed="DATA/processed/capstarrseq_txt_to_bed/{id_prom}.bed",\
+            chiapet_prom_prom="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_interacting_promoters.bed"
+    output: peak_prom_bed="RESULTS/bedtools_intersect/peak_prom/{ft_or_broad}/{mark}_{strain}_{cond}/{exp}/{id_prom}_vs_{id_peaks}.bed",\
+            peak_prom_chiapet_bed="RESULTS/bedtools_intersect/peak_prom_chiapet/{ft_or_broad}/{mark}_{strain}_{cond}/{exp}/{id_prom}_vs_{id_peaks}.bed"
+    threads: 1
+    shell: """
+    bedtools intersect -a {input.prom_bed} -b {input.peak_bed} \
+            -u -wa > {output.peak_prom_bed}
+
+    bedtools intersect -a {output.peak_prom_bed} -b {input.chiapet_prom_prom} \
+            -u -wa > {output.peak_prom_chiapet_bed}
+    """
+
+rule capstarrseq_ln_names:
+    """
+    Created: 2016-02-26 14h42
+    Rename capstarrseq data to easier to handle names for workflow (rule bedtools_intersect_peak_prom_chiapet_merge)
+    """
+    input:  bed1="DATA/processed/capstarrseq_txt_to_bed/CapStarrseq_Active_Prom_Hela_merge_IP.bed",\
+            bed2="DATA/processed/capstarrseq_txt_to_bed/CapStarrseq_Active_Prom_K562_merge_IP.bed",\
+            bed3="DATA/processed/capstarrseq_txt_to_bed/CapStarrseq_InactiveProm_FDR95_All_samples.bed"
+    output: bed1="DATA/processed/capstarrseq_ln_names/capstarrseq_active_Hela.bed",\
+            bed2="DATA/processed/capstarrseq_ln_names/capstarrseq_active_K562.bed",\
+            bed3="DATA/processed/capstarrseq_ln_names/capstarrseq_inactive_Hela.bed",\
+            bed4="DATA/processed/capstarrseq_ln_names/capstarrseq_inactive_K562.bed"
+    threads: 1
+    shell: """
+    ln {input.bed1} {output.bed1}
+    ln {input.bed2} {output.bed2}
+    
+    # Promoters are defined inactive for one strain if they are inactive for both strains.
+    ln {input.bed3} {output.bed3}
+    ln {input.bed3} {output.bed4}
+    """
+
+rule wget_H3K4me1_me2_bigwig:
+    """
+    Created: 2016-02-26 16h15 
+    Needed in order to get list of promprom.
+    """
+    output: H3K4me1="DATA/CHIP-SEQ/BW/ChIP-seq_H3K4me1_K562.bigWig",\
+            H3K4me2="DATA/CHIP-SEQ/BW/ChIP-seq_H3K4me2_K562.bigWig"
+    threads: 1
+    shell: """
+    # H3K4me1:
+    wget https://www.encodeproject.org/files/ENCFF000BXQ/@@download/ENCFF000BXQ.bigWig
+    mv ENCFF000BXQ.bigWig {output.H3K4me1}
+
+    # H3K4me2:
+    wget https://www.encodeproject.org/files/ENCFF000BXV/@@download/ENCFF000BXV.bigWig
+    mv ENCFF000BXV.bigWig {output.H3K4me2}    
+    """
+
+rule bedtools_intersect_peak_prom_chiapet_merge:
+    """
+    Created: 2016-02-26
+
+    ip="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_interacting_promoters.bed",\
+    """
+    input:  peak_bed="DATA/peaks/merge/peaks_{strain}_{mark}.bed",\
+            prom_bed="DATA/processed/capstarrseq_ln_names/capstarrseq_{cond}_{strain}.bed",\
+            chiapet_prom_prom="RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_interacting_promoters.bed"
+    output: peak_prom_bed="RESULTS/bedtools_intersect_merge/peak_prom/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}.bed",\
+            peak_prom_chiapet_bed="RESULTS/bedtools_intersect_merge/peak_prom_chiapet/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}.bed"
+    threads: 1
+    priority: 7
+    shell: """
+    bedtools intersect -a {input.prom_bed} -b {input.peak_bed} \
+            -u -wa > {output.peak_prom_bed}
+
+    bedtools intersect -a {output.peak_prom_bed} -b {input.chiapet_prom_prom} \
+            -u -wa > {output.peak_prom_chiapet_bed}
+    """
+
+
+# Define some wildcards for rule intersect_stats
+# Wildcards defined by looking at the order of samples in input.intersect_peak_prom
+FT_OR_BROAD_INTERSECT_STATS=["ft"]*9 + ["broad"]*6 + ["ft"]*9 + ["broad"]*6 + ["ft"]*12
+
+MARK_INTERSECT_STATS=["CTCF"]*3 + ["RNAPII"]*6 + ["H3K27ac"]*6 + ["POLR2A"]*9 + ["H3K4me3"]*6 + ["RAD21"]*9 + ["P300"]*3
+
+STRAIN_INTERSECT_STATS=["Hela"]*9 + ["K562"]*30 + ["Hela"]*3
+
+COND_INTERSECT_STATS=["active","active","inactive"]*14
+
+EXP_INTERSECT_STATS=\
+["Hela_TANG2015_GSM1872888_PET_clusters_CTCF"]*3 +\
+["Hela_TANG2015_GSM1872889_PET_clusters_RNAPII"]*6 +\
+["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac"]*6 +\
+["K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A"]*9 +\
+["K562_MERGE_BALL_TALL_SNYD_CHIA_K4me3"]*6 +\
+["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21"]*9 +\
+["Hela_TableS2_Kuznetsova_GB2016_P300"]*3
+
+ID_PROM_INTERSECT_STATS=ID_PROM*14
+
+from itertools import repeat
+ID_PEAKS_INTERSECT_STATS=[x for item in ID_PEAKS for x in repeat(item, 3)]
+
+
+rule intersect_stats:
+    """
+    Created: 2016-02-23
+    """
+    input:  intersect_peak_prom=expand("RESULTS/bedtools_intersect/peak_prom/{ft_or_broad}/{mark}_{strain}_{cond}/{exp}/{id_prom}_vs_{id_peaks}.bed", zip,\
+                    ft_or_broad=FT_OR_BROAD_INTERSECT_STATS,\
+                    mark=MARK_INTERSECT_STATS,\
+                    strain=STRAIN_INTERSECT_STATS,\
+                    cond=COND_INTERSECT_STATS,\
+                    exp=EXP_INTERSECT_STATS,\
+                    id_prom=ID_PROM_INTERSECT_STATS,\
+                    id_peaks=ID_PEAKS_INTERSECT_STATS),\
+            capstarrseq=expand("DATA/processed/capstarrseq_txt_to_bed/{id_prom}.bed", id_prom=ID_PROM),\
+            intersect_peak_prom_chiapet=expand("RESULTS/bedtools_intersect/peak_prom_chiapet/{ft_or_broad}/{mark}_{strain}_{cond}/{exp}/{id_prom}_vs_{id_peaks}.bed", zip, \
+                    ft_or_broad=FT_OR_BROAD_INTERSECT_STATS,\
+                    mark=MARK_INTERSECT_STATS,\
+                    strain=STRAIN_INTERSECT_STATS,\
+                    cond=COND_INTERSECT_STATS,\
+                    exp=EXP_INTERSECT_STATS,\
+                    id_prom=ID_PROM_INTERSECT_STATS,\
+                    id_peaks=ID_PEAKS_INTERSECT_STATS)
+    output: wc="RESULTS/intersect_stats/wc_-l.txt"
+    threads: 1
+    message: "-- rule intersect_stats completed --"
+    shell: """
+    rm -f {output}
+
+    for i in {input.intersect_peak_prom} {input.capstarrseq} {input.intersect_peak_prom_chiapet}
+    do
+        wc -l $i >> {output.wc}
+    done
+    """
+
+# Define variables for intersect_stats_merge
+FT_OR_BROAD_INTERSECT_STATS_MERGE=["ft"]*8 + ["broad"]*8 + ["ft"]*4
+
+MARK_INTERSECT_STATS_MERGE=["CTCF"]*2 + ["RNAPII"]*2 + ["POLII"]*2 + ["P300"]*2 + ["H3K27ac"]*2 + ["H3K4me1"]*2 + ["H3K4me2"]*2 + ["H3K4me3"]*2 + ["POLR2A"]*2 + ["RAD21"]*2 
+
+STRAIN_INTERSECT_STATS_MERGE=["Hela"]*8 + ["K562"]*12
+
+COND_INTERSECT_STATS_MERGE=["active","inactive"]*10
+
+EXP_INTERSECT_STATS_MERGE=\
+        ["Hela_TANG2015_GSM1872888_PET_clusters_CTCF"]*2 +\
+        ["Hela_TANG2015_GSM1872889_PET_clusters_RNAPII"]*2 +\
+        ["Hela_TableS2_Kuznetsova_GB2016_POLII"]*2 +\
+        ["Hela_TableS2_Kuznetsova_GB2016_P300"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me3"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A"]*2 +\
+        ["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21"]*2
+
+
+rule intersect_stats_merge:
+    """
+    Created: 2016-02-26
+
+    "RESULTS/bedtools_intersect/peak_prom_chiapet/{ft_or_broad}/{mark}_{strain}/{cond}_{exp}.bed"
+    """
+    input:  intersect_peak_prom=expand("RESULTS/bedtools_intersect_merge/peak_prom/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}.bed", zip,\
+                    ft_or_broad=FT_OR_BROAD_INTERSECT_STATS_MERGE,\
+                    mark=MARK_INTERSECT_STATS_MERGE,\
+                    strain=STRAIN_INTERSECT_STATS_MERGE,\
+                    cond=COND_INTERSECT_STATS_MERGE,\
+                    exp=EXP_INTERSECT_STATS_MERGE),\
+            capstarrseq=expand("DATA/processed/capstarrseq_ln_names/capstarrseq_{cond}_{strain}.bed", zip, cond=["active","inactive"], strain=["Hela","K562"]),\
+            intersect_peak_prom_chiapet=expand("RESULTS/bedtools_intersect_merge/peak_prom_chiapet/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}.bed", zip, \
+                    ft_or_broad=FT_OR_BROAD_INTERSECT_STATS_MERGE,\
+                    mark=MARK_INTERSECT_STATS_MERGE,\
+                    strain=STRAIN_INTERSECT_STATS_MERGE,\
+                    cond=COND_INTERSECT_STATS_MERGE,\
+                    exp=EXP_INTERSECT_STATS_MERGE)
+    output: wc="RESULTS/intersect_stats_merge/wc_-l.txt"
+    threads: 1
+    message: "-- rule intersect_stats completed --"
+    shell: """
+    rm -f {output}
+
+    for i in {input.intersect_peak_prom} {input.capstarrseq} {input.intersect_peak_prom_chiapet}
+    do
+        wc -l $i >> {output.wc}
+    done
+    """
+
+rule wc_to_phyper_table_merge:
+    """
+    Created: 2016-03-01 9h32
+    """
+    input: wc="RESULTS/intersect_stats_merge/wc_-l.txt"
+    output: table="RESULTS/intersect_stats_merge/table.tsv"
+    threads: 1
+    shell: """
+    echo "strain_mark\tq\tm\tn\tk-q" > {output.table}
+    
+    echo "Hela CTCF\nHela PolII Tang\nHela PolII Kuznetsova\nHela P300\nK562 H3K27ac\nK562 H3K4me1\nK562 H3K4me2\nK562 H3K4me3\nK562 PolII\nK562 RAD21" > {output.table}.strain_mark 
+    
+    grep -s ".*bedtools_intersect_merge/peak_prom_chiapet/.*/active/.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.q
+   
+    grep -s ".*bedtools_intersect_merge/peak_prom/.*/active/.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.m
+
+    grep -s ".*/bedtools_intersect_merge/peak_prom/.*inactive.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.n
+
+    grep -s ".*/bedtools_intersect_merge/peak_prom_chiapet/.*inactive.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.k-q
+
+    paste {output.table}.strain_mark {output.table}.q {output.table}.m {output.table}.n {output.table}.k-q >> {output.table}
+    """
+
+rule wc_to_phyper_table:
+    """
+    Created: 2016-02-25 15h09
+    """
+    input: wc="RESULTS/intersect_stats/wc_-l.txt"
+    output: table="RESULTS/intersect_stats/table.tsv"
+    threads: 1
+    shell: """
+    echo "strain_mark_replicate\tq\tm\tn\tk-q" > {output.table}
+    
+    echo "Hela CTCF R1\nHela PolII R1\nHela PolII R2\nHela P300 R1\nK562 H3K27ac R1\nK562 H3K27ac R2\nK562 PolII R1\nK562 PolII R2\nK562 PolII R3\nK562 H3K4me3 R1\nK562 H3K4me3 R2\nK562 RAD21 R1\nK562 RAD21 R2\nK562 RAD21 R3" > {output.table}.strain_mark_replicate 
+    
+    grep -s ".*/peak_prom_chiapet/.*Hela.*Active.*Hela.*Hela.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.q
+    grep -s ".*/peak_prom_chiapet/.*K562.*Active.*K562.*K562.*" {input.wc} | cut -f1 --delimiter=" " >> {output.table}.q
+    
+    grep -s ".*/peak_prom/.*Hela.*Active.*Hela.*Hela.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.m
+    grep -s ".*/peak_prom/.*K562.*Active.*K562.*K562.*" {input.wc} | cut -f1 --delimiter=" " >> {output.table}.m
+
+    grep -s ".*/peak_prom/.*Hela.*Inactive.*All_samples.*Hela.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.n
+    grep -s ".*/peak_prom/.*K562.*Inactive.*All_samples.*K562.*" {input.wc} | cut -f1 --delimiter=" " >> {output.table}.n
+
+    grep -s ".*/peak_prom_chiapet/.*Hela.*Inactive.*All_samples.*Hela.*" {input.wc} | cut -f1 --delimiter=" " > {output.table}.k-q
+    grep -s ".*/peak_prom_chiapet/.*K562.*Inactive.*All_samples.*K562.*" {input.wc} | cut -f1 --delimiter=" " >> {output.table}.k-q
+
+    paste {output.table}.strain_mark_replicate {output.table}.q {output.table}.m {output.table}.n {output.table}.k-q >> {output.table}
+    """
+
+rule intersect_phyper:
+    """
+    Created: 2016-02-25
+    Modified: 2016-03-01 - Addded wildcard to allow plotting for merge data.
+    """
+    input: "RESULTS/intersect_stats{_merge}/table.tsv"
+    output: tsv="RESULTS/intersect_phyper{_merge}/table.tsv",\
+            pdf="RESULTS/intersect_phyper{_merge}/table.pdf"
+    threads: 1
+    run:
+        R("""
+        data <- read.table("{input}", sep="\t", header=TRUE)
+        #data <- read.table("RESULTS/intersect_stats/table.tsv", sep="\t", header=TRUE)
+
+        for (i in seq(1:nrow(data)))
+        {{
+            data[i,"phyper"] <- phyper(
+                q=data[i,"q"]-1,
+                m=data[i,"m"],
+                n=data[i,"n"],
+                k=data[i,"k.q"]+data[i,"q"],
+                lower.tail=FALSE)
+        }}
+
+        write.table(data, "{output.tsv}", sep="\t")
+
+        library(gridExtra)
+        pdf("{output.pdf}")
+        grid.table(data)
+        dev.off()
+        """)
+

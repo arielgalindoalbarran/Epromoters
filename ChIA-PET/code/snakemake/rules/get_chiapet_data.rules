@@ -1,0 +1,81 @@
+rule merge_chiapet_H3K4me2_me1:
+    """
+    Created 2016-02-26 10h34
+    I can't find the rule used to merge chiapet data from previous samples so I am just writing a new one for H3K4me2_me1
+    """
+    input:  chiapet_H3K4me2_b1_t1="DATA/ENCFF002ENA_B1_T1_SNYD_H3K4me2.tsv",\
+            chiapet_H3K4me2_b2_t1="DATA/ENCFF002ENC_B2_T1_SNYD_H3K4me2.tsv",\
+            chiapet_H3K4me1_b1_t1="DATA/ENCFF002EMW_B1_T1_SNYD_H3K4me1.tsv",\
+            chiapet_H3K4me1_b2_t1="DATA/ENCFF002EMY_B2_T1_SNYD_H3K4me1.tsv"
+    output: chiapet_H3K4me2="DATA/K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2.tsv",\
+            chiapet_H3K4me1="DATA/K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1.tsv"
+    params: ppn="nodes=1:ppn=1"
+    threads: 1
+    shell: """
+    # Adding filename to pair_id so it is possible to know the source when looking at the merged file
+    # sed looks for the 7th tab in file and add suffix to the 7th column content (pair_name)
+    sed "s/\t/_ENCFF002ENA_B1_T1_SNYD_H3K4me2.tsv\t/"7 {input.chiapet_H3K4me2_b1_t1} > {output.chiapet_H3K4me2}
+
+    #removing the second header
+    tail -n+2 {input.chiapet_H3K4me2_b2_t1} | sed "s/\t/_ENCFF002ENC_B2_T1_SNYD_H3K4me2.tsv\t/"7 >> {output.chiapet_H3K4me2}
+
+
+    sed "s/\t/_ENCFF002EMW_B1_T1_SNYD_H3K4me1.tsv\t/"7 {input.chiapet_H3K4me1_b1_t1} > {output.chiapet_H3K4me1}
+
+    tail -n+2 {input.chiapet_H3K4me2_b2_t1} | sed "s/\t/_ENCFF002EMY_B2_T1_SNYD_H3K4me1.tsv\t/"7 >> {output.chiapet_H3K4me1}
+    """
+
+
+rule get_data_H3K4me2_me1:
+    """
+    Created 2016-02-26
+    Adding H3K4me1 and me3 to the analysis
+
+    https://www.encodeproject.org/search/?searchTerm=k562+snyder&type=Experiment&assay_term_name=ChIA-PET
+    """
+    output: peaks_H3K4me2_b1_t1="DATA/peaks/peaks_ENCODE_K562_H3K4me2_ENCFF002ENB.bed",\
+            peaks_H3K4me2_b2_t1="DATA/peaks/peaks_ENCODE_K562_H3K4me2_ENCFF002END.bed",\
+            chiapet_H3K4me2_b1_t1="DATA/ENCFF002ENA_B1_T1_SNYD_H3K4me2.tsv",\
+            chiapet_H3K4me2_b2_t1="DATA/ENCFF002ENC_B2_T1_SNYD_H3K4me2.tsv",\
+            peaks_H3K4me1_b1_t1="DATA/peaks/peaks_ENCODE_K562_H3K4me1_ENCFF002EMX.bed",\
+            peaks_H3K4me1_b2_t1="DATA/peaks/peaks_ENCODE_K562_H3K4me1_ENCFF002EMZ.bed",\
+            chiapet_H3K4me1_b1_t1="DATA/ENCFF002EMW_B1_T1_SNYD_H3K4me1.tsv",\
+            chiapet_H3K4me1_b2_t1="DATA/ENCFF002EMY_B2_T1_SNYD_H3K4me1.tsv"
+    params: ppn="nodes=1:ppn=1"
+    threads: 1
+    shell: """
+    # H3K4me2
+    ## long range chromatin interactions
+    wget https://www.encodeproject.org/files/ENCFF002ENA/@@download/ENCFF002ENA.tsv 
+    mv ENCFF002ENA.tsv {output.chiapet_H3K4me2_b1_t1}
+
+    wget https://www.encodeproject.org/files/ENCFF002ENC/@@download/ENCFF002ENC.tsv 
+    mv ENCFF002ENC.tsv {output.chiapet_H3K4me2_b2_t1}
+    
+    ##peaks
+    wget https://www.encodeproject.org/files/ENCFF002ENB/@@download/ENCFF002ENB.bed.gz
+    gunzip ENCFF002ENB.bed.gz
+    mv ENCFF002ENB.bed {output.peaks_H3K4me2_b1_t1}
+
+    wget https://www.encodeproject.org/files/ENCFF002END/@@download/ENCFF002END.bed.gz
+    gunzip ENCFF002END.bed.gz
+    mv ENCFF002END.bed {output.peaks_H3K4me2_b2_t1}
+    
+
+    # H3K4me1
+    ## long range chromatin interactions
+    wget https://www.encodeproject.org/files/ENCFF002EMW/@@download/ENCFF002EMW.tsv 
+    mv ENCFF002EMW.tsv {output.chiapet_H3K4me1_b1_t1}
+
+    wget https://www.encodeproject.org/files/ENCFF002EMY/@@download/ENCFF002EMY.tsv
+    mv ENCFF002EMY.tsv {output.chiapet_H3K4me1_b2_t1}
+    
+    ##peaks
+    wget https://www.encodeproject.org/files/ENCFF002EMX/@@download/ENCFF002EMX.bed.gz
+    gunzip ENCFF002EMX.bed.gz
+    mv ENCFF002EMX.bed {output.peaks_H3K4me1_b1_t1}
+
+    wget https://www.encodeproject.org/files/ENCFF002EMZ/@@download/ENCFF002EMZ.bed.gz
+    gunzip ENCFF002EMZ.bed.gz
+    mv ENCFF002EMZ.bed {output.peaks_H3K4me1_b2_t1}
+    """

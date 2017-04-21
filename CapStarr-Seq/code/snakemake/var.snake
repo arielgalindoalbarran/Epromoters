@@ -1,0 +1,37 @@
+REPEAT_TYPE_MM10, = glob_wildcards("annotation/input/feature/mm10/split_repeatMasker/{id}.bed")
+REPEAT_TYPE_MM9, = glob_wildcards("annotation/input/feature/mm9/split_repeatMasker/{id}.bed")
+SOPHIE_CLASSES, = glob_wildcards("annotation/input/classes/{id}.txt")
+WORKFLOWS, = glob_wildcards("code/snakemake/workflows/{id}.snakefile")
+
+EXP="IGMM_03"
+EXP_SAMPLES, = glob_wildcards("data/input/fastq/{id}_1.fastq.gz")
+
+# rep1 removed from now because the fastq.gz file is corrupted
+#SAMPLE=["CapSTARR-seq_P5424_rep1","CapSTARR-seq_P5424_rep2","CapSTARR-seq_P5424_Input","All_DnaseI_rep1","All_DnaseI_rep2"]
+#SAMPLE=["CapSTARR-seq_P5424_rep2","CapSTARR-seq_P5424_Input","All_DnaseI_rep1","All_DnaseI_rep2"]
+
+def col1_to_col2(col1_id,col1_name,col2_name):
+	"""
+	Allow to define wildcards from metadata in samples.tsv
+
+	Created: 2016-02-16 11h10
+	Modified: 2016-05-27 14h12 Adapted to specific issue	
+ 
+	Usage:
+	col1_to_col2('SRR948771','SRA_sample_ID','GEO_series_ID')
+	"""
+	d={}
+	for row in csv.DictReader(open('code/snakemake/samples.tsv'),delimiter='\t'):
+		d[row[col1_name]] = row[col2_name]
+	return d[col1_id]
+
+
+#SAMPLES=[]
+#for id in SAMPLE:
+#	ACCESSION.append(col1_to_col2(id,'File_name','Sample_name'))
+#
+#ACCESSION_ERKEK_2013=[]
+#for id in SAMPLE_ERKEK_2013:
+#	ACCESSION_ERKEK_2013.append(col1_to_col2(id,'SRA_sample_ID','GEO_series_ID'))
+#
+####

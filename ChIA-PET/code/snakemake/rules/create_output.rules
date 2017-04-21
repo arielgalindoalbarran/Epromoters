@@ -1,0 +1,44 @@
+rule create_output_table_merged: 
+    """
+    Modified: 2016-02-17 18h09 - Cleaned rule
+    TODO : RULE WITH UNFINISHED MERGED INPUTS exp FROM HELA STRAIN
+
+    This rule contains many hardcoded elements and should be rewritten for more flexibility or taken carefully when changing inputs.
+    """
+    input: expand("RESULTS/PROM_PROM_GC/{ft_or_broad}/{mark}_{strain}/{cond}/{exp}_fltr_pp_chiapet_overlap_prom.stat", \
+                    zip, ft_or_broad=["ft", "ft", "broad", "broad","broad","broad"]*2+["ft"]*8, \
+                    mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me1", "H3K4me2","H3K4me3"]*2+["CTCF","RNAPII","POLII","P300"]*2, \
+                    strain=["K562"]*12+["Hela"]*8, \
+                    cond=["active"]*6+["inactive"]*6+["active"]*4+["inactive"]*4, \
+                    exp=["K562_MERGE_BALL_TALL_SNYD_CHIA_RAD21","K562_MERGE_BALL_TALL_SNYD_CHIA_POLR2A","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K27ac","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me1","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me2","K562_MERGE_BALL_TALL_SNYD_CHIA_H3K4me3"]*2+["Hela_TANG2015_GSM1872888_PET_clusters_CTCF", "Hela_TANG2015_GSM1872889_PET_clusters_RNAPII", "Hela_TableS2_Kuznetsova_GB2016_POLII", "Hela_TableS2_Kuznetsova_GB2016_P300"]*2)
+    output: table="RESULTS/OUTPUT_GC/table_summary_stats.txt",\
+            formatted_table="RESULTS/OUTPUT_GC/formatted_table_summary_stats.txt"
+    threads: 1
+    shell: """
+    for i in `ls RESULTS/PROM_PROM_GC/*/*/*/*log RESULTS/PROM_PROM_GC/*/*/*/*stat` ; do awk 'BEGIN{{FS=OFS="\t"}}{{print $1,$2,FILENAME}}' $i; done >  {output.table}
+
+    # Formatted table for Salva:
+    echo -e "\tK562 H3K27ac active\tK562 H3K27ac inactive\t\
+K562 H3K4me1 active\tK562 H3K4me1 inactive\t\
+K562 H3K4me2 active\tK562 H3K4me2 inactive\t\
+K562 H3K4me3 active\tK562 H3K4me3 inactive\t\
+Hela CTCF active\tHela CTCF inactive\t\
+Hela P300 active\tHela P300 inactive\t\
+Hela POLII active\tHela POLII inactive\t\
+K562 POLR2A active\tK562 POLR2A inactive\t\
+K562 RAD21 active\tK562 RAD21 inactive\t\
+Hela RNAPII active\tHela RNAPII inactive" > {output.formatted_table}.tmp_header
+    
+    paste RESULTS/PROM_PROM_GC/*/*/*/*log > {output.formatted_table}.tmp
+    # We select the first column containing description and columns congruent 2 modulo 3 containing values.
+    cut -f1,2,5,8,11,14,17,20,23,26,29,32,35,38,41,44,47,50,53,56,59 {output.formatted_table}.tmp > {output.formatted_table}.tmp2
+    
+    paste RESULTS/PROM_PROM_GC/*/*/*/*stat > {output.formatted_table}.tmp3
+    # Same as before to retrieve binomial test value. This time values are columns congruent 2 modulo 2
+    tail -1 {output.formatted_table}.tmp3 | cut -f1,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40 > {output.formatted_table}.tmp4
+
+    cat {output.formatted_table}.tmp_header {output.formatted_table}.tmp2 {output.formatted_table}.tmp4 > {output.formatted_table}
+    
+    rm -f {output.formatted_table}.tmp_header {output.formatted_table}.tmp {output.formatted_table}.tmp2 {output.formatted_table}.tmp3 {output.formatted_table}.tmp4 {output.formatted_table}.tmp5
+    """
+

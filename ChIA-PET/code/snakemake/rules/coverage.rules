@@ -1,0 +1,108 @@
+"""
+Rules to compute coverage around TSS with different settings for FT and Broad domains.
+"""
+
+rule coverage_ft:
+    """
+    Get coverage in promoter region for FT.
+    
+    Usage: 
+    expand('RESULTS/coverage_ft/{mark}_{strain}.tab', \
+            mark=['POLR2A', 'RAD21'], \
+            strain=['K562'])
+    """
+    input:  gtf='DATA/SalvaWork/All_hpromoterRegions_m200p50.gtf',
+            bw='DATA/CHIP-SEQ/BW/ChIP-seq_{mark}_{strain}.bigWig',
+            chrominfo='annotation/ChromInfo.txt',
+            gtftoolkit_coverage='code/python/gtftoolkit/bw_coverage.py',
+            gtftoolkit_convert='code/python/gtftoolkit/convert.py',
+            gtftoolkit_col_from_tab='code/python/gtftoolkit/col_from_tab.py'
+    output: tab='RESULTS/coverage_ft/{mark}_{strain}.tab'
+    threads: 16
+    shell:"""
+    {input.gtftoolkit} --verbose \
+            --infile {input.gtf} \
+            --type transcript \
+            --coveragefileList {input.bw} \
+            --chromInfo {input.chrominfo} \
+            --score b0 --nbThreads {threads} | \
+            {input.gtftoolkit_convert} --format tx_tab --verbose | \
+            {input.gtftoolkit_col_from_tab} \
+            --columns transcript_id,transcript_cov > \
+            {output.tab}
+    """
+
+
+rule coverage_broad:
+    """
+    Get coverage in promoter region for broad domain.
+   
+    The difference is that we use only top25% on the region -1000+1000 to define the coverage.
+
+    Usage: 
+    expand('RESULTS/coverage_broad/{mark}_{strain}.tab', \
+            mark=['H3K27ac', 'H3K4me3'], \
+            strain=['K562'])
+    """
+    input:  gtf='DATA/SalvaWork/All_hpromoterRegions_m1000p1000.gtf',
+            bw='DATA/CHIP-SEQ/BW/ChIP-seq_{mark}_{strain}.bigWig',
+            chrominfo='annotation/ChromInfo.txt',
+            gtftoolkit_coverage='code/python/gtftoolkit/bw_coverage.py',
+            gtftoolkit_convert='code/python/gtftoolkit/convert.py',
+            gtftoolkit_col_from_tab='code/python/gtftoolkit/col_from_tab.py'
+    output: tab='RESULTS/coverage_broad/{mark}_{strain}.tab'
+    threads: 16
+    shell:"""
+    {input.gtftoolkit_coverage} --verbose \
+            --infile {input.gtf} \
+            --type transcript \
+            --coveragefileList {input.bw} \
+            --chromInfo {input.chrominfo} \
+            --binNb 20 --nHighest 5 \
+            --score b0 --nbThreads 15 | \
+            {input.gtftoolkit_convert} --format tx_tab --verbose | \
+            {input.gtftoolkit_col_from_tab} \
+            --columns transcript_id,transcript_cov > \
+            {output.tab}
+    """
+
+
+rule coverage_summary:
+    """
+    Create the summary table requested by Salva
+
+    Modified: 2016-02-17 17h26 - Add coverage of Hela marks to the summary table 
+    """
+    input:  expand('RESULTS/coverage_{ft_or_broad}/{mark}_{strain}.tab',\
+            zip, ft_or_broad=["ft", "ft", "broad", "broad"]+["ft"]*3, \
+            mark=["RAD21", "POLR2A", "H3K27ac", "H3K4me3"]+['CTCF','POLII','P300'], \
+            strain=["K562"]*4+["Hela"]*3)
+    output: 'RESULTS/coverage_summary/coverage_summary.tsv'
+    threads: 1
+    shell:"""
+    echo "transcript_ID\tK562_RAD21\tK562_POLR2A\tK562_H3K27ac\tK562_H3K4me3\tHela_CTCF\tHela_POLII\tHela_P300" > {output}
+
+    cut -f2 RESULTS/coverage_ft/POLR2A_K562.tab > RESULTS/coverage_ft/POLR2A_K562_cut_f2.tab
+
+    cut -f2 RESULTS/coverage_broad/H3K4me3_K562.tab > RESULTS/coverage_broad/H3K4me3_K562_cut_f2.tab
+
+    cut -f2 RESULTS/coverage_broad/H3K27ac_K562.tab > RESULTS/coverage_broad/H3K27ac_K562_cut_f2.tab
+
+    cut -f2 RESULTS/coverage_ft/CTCF_Hela.tab > RESULTS/coverage_ft/CTCF_Hela_cut_f2.tab
+
+    cut -f2 RESULTS/coverage_ft/POLII_Hela.tab > RESULTS/coverage_ft/POLII_Hela_cut_f2.tab
+
+    cut -f2 RESULTS/coverage_ft/P300_Hela.tab > RESULTS/coverage_ft/P300_Hela_cut_f2.tab
+
+    paste RESULTS/coverage_ft/RAD21_K562.tab \
+            RESULTS/coverage_ft/POLR2A_K562_cut_f2.tab \
+            RESULTS/coverage_broad/H3K4me3_K562_cut_f2.tab \
+            RESULTS/coverage_broad/H3K27ac_K562_cut_f2.tab \
+            RESULTS/coverage_ft/CTCF_Hela_cut_f2.tab \
+            RESULTS/coverage_ft/POLII_Hela_cut_f2.tab \
+            RESULTS/coverage_ft/P300_Hela_cut_f2.tab >> {output}
+
+    rm -f RESULTS/coverage_ft/POLR2A_K562_cut_f2.tab RESULTS/coverage_broad/H3K4me3_K562_cut_f2.tab RESULTS/coverage_broad/H3K27ac_K562_cut_f2.tab RESULTS/coverage_ft/CTCF_Hela_cut_f2.tab RESULTS/coverage_ft/POLII_Hela_cut_f2.tab RESULTS/coverage_ft/P300_Hela_cut_f2.tab
+    """
+
+

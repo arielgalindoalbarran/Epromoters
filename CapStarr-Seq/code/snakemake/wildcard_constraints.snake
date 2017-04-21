@@ -1,0 +1,22 @@
+# Including global constraints on wildcards
+# Including constraints allow easier developping, debugging and decrease DAG resolution time by reducing the complexity of combinations between wildcards. 
+
+wildcard_constraints:
+    index="mm9|mm10|hg18|hg19|GRCh38", # Reference genome assembly
+    runtype="se|pe", # Used to discrimtate single and paired-ends specific rules.
+    refType="TSS|TES|center", # wildcards for deepTools computeMatrix, reference used in reference-point mode.
+    signal="bamCoverage|bamCompare", #wildcards for bw signal used by deepTools computeMatrix.
+    lengthAround="[0-9]+", #wildcard for deepTools computeMatrix, to define the region evaluated around the reference.
+    geo_experiment="GSE[0-9]+",
+    sra_sample="SRR[0-9]+",
+    source_bam="samtool/sam_to_bam|picard/MarkDuplicates",
+    extReads="[0-9]+",
+    crm_type="hProm|IGMM|mTDHS",
+    id_bam_to_bed="13|14_[0-9]+/13",
+    id_sample="[0-9a-zA-Z_-]+",
+    id_input="[0-9a-zA-Z_-]+",
+    #id_sample="test_practice_rep1",
+    #id_input="test_practice_rep2",
+
+
+
