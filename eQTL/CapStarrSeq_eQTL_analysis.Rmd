@@ -1,0 +1,198 @@
+---
+title: "CapStarrSeq analysis to identify regulatory eQTLs from Gtex tissues"
+author: "Alejandra Medina-Rivera"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    fig_caption: yes
+    highlight: zenburn
+    theme: cerulean
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    fig_caption: yes
+    highlight: zenburn
+    toc: yes
+    toc_depth: 3
+  word_document: default
+---
+
+
+
+```{r knitr setup, include=FALSE,  eval=TRUE, echo=FALSE, warning=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo=FALSE, eval=TRUE, cache=FALSE, message=FALSE, warning=FALSE, comment = "")
+```
+#Datasets
+
+##CapStarr-seq data
+Using CapStarr-seq the group of Salvatore Spicuglia characterized promoters with enhancer functions in HELA and K562 cells. 
+Original Cap-Starr promoter regions were mapped in **hg19** genome version.
+
+## eQTL data set
+For this version the eQTL catalog GTEX v6 used was obtained on November 29th 2015 by Alejandra Medina, coordinates are based on the Human Genome version **hg38**.
+Coordinates were lifted over to  **hg19** genome version, in correspondence to the Captured Starr-seq promoters data.
+
+#Analysis
+
+
+
+##Comparison between genes related to eQTLs in Gtex and the genes annotated to CapStarr-seq promoters by distance
+
+GTEx contains several hundreds of variants that have been associated to one or several genes through gene expression analysis. 
+
+We compared the CapStarr-seq distance annotated genes to the ones annotated to be affected by eQTLs found within the reported enhancer regions +-1.5KB.
+
+-Version: **20160422_extended_regiones**
+
+```
+Rscript R-scripts/compare_gtex_vs_capStarr.R
+```
+
+
+```{r echo=FALSE}
+library(knitr)
+project_folder<-"./"
+version<-"20160422_extended_regions"
+capstarr.ovlp.gtex.folder <- file.path(project_folder , "results/", version)
+capstarr.ovlp.gtex.one.tissue.comp.prefix<-"CapStarrSeq_Hela_overlap_eQTL_Heart_Atrial_Appendage"
+capstarr.ovlp.gtex.one.tissue.comp.file <- file.path( capstarr.ovlp.gtex.folder, paste(capstarr.ovlp.gtex.one.tissue.comp.prefix, ".txt",sep=""))
+
+## Example of one CapStarrseq-enhancer set in HELA compared to eQTL data in Heart_Atrial_Appendage
+capstarr.ovlp.gtex.one.tissue.comp.tab <- read.delim(capstarr.ovlp.gtex.one.tissue.comp.file, header=TRUE )
+
+kable(head(capstarr.ovlp.gtex.one.tissue.comp.tab ), caption = "**Table 1.** Top of a compartive file between CapStarrseq enhancer annotations and eQTL data for one tissue: *Heart Atrial Appendage*.
+      One enhancer region can be displayed several times, one for each eQTL SNP it overlaps")
+
+```
+
+###Gene information retrieval
+
+Retrieve information for all gene IDs reported to be associated to CapStarr-seq enhancers, some gene annotations were ambiguous hence the necessity of a program to pull coordinate information for this gene set.
+
+
+-Retrieve gene names for both eQTL and CapStarr-seq annotations
+```
+cat results/20160422_extended_regions/CapStarrSeq*overlap*.txt | grep -v 'gene_emp_p_eqtl' | cut -f8 -d$'\t' | perl -pe 's/\t/\n/' |sort -u > results/20160422_extended_regions/All_genes.txt
+```
+
+-Retrieve coordinates for all listed genes.
+
+```
+Rscript R-scripts/Recover_all_Genes_Info.R
+```
+
+The file containing the coordinates for all Capstarr-Seq distance annotated genes is : **results/20160422_extended_regione/AllGenes_transcript_coordinates.txt**
+
+
+
+## ChiaPet pair analysis
+
+ChiaPet for PolII enables the discovery of promoter-promomter interactions.
+The list of interactions coded by the gene names (gene pairs) was provided by Salvatore.
+
+Using eQTL annotated ePromoters and Control promoters calculated in previous sections, we aimed to assess if the efect of the eQTLs on ChiaPet gene pairs difered if the eQTL was located on an ePromoter or not, or if the regulation was distal or close range.
+
+### Analysis steps
+
+1. Gene names were edited by excel, an equivalence table was used to rename the genes properly.
+
+2. Clean repeted ChiaPet gene pairs, and self gene interactions.
+
+3. For each ChIA-PET pair recover the eQTLs that fall within the promoters of the pair, and that have a regulatory effect on any of the genes in the pair.
+
+  + If here were eQTLs interacting with the genes in the pair annoate them based on the type of promoter they overlaped hpromoter or epromoter
+
+4. Retrieve ChiaPet gene pairs with eQTL information.
+
+5. Cathegorize the eQTL promoter interaction into hProm and eProm.
+
++ -1  None of the genes is an ePromoter
++ 0 One of the genes is an ePromoter but the eQTL is in hPromoterc
++ 1 One promoter is a ePromoter and it contains the eQTL
++ 2 Both genes in pair are ePromoters
+
+6. Classify in Close (eQTL fall in capsStar-seq promoter) and Distal interaction (it does not fall in the capsStar-Seq promoter).
+
+7. Select reciprocal eQTLs, eQTLs that affect both genes in a pair (bimodal).
+
+8. Calculate the  mean difference of beta effect between samples using Wilcoxon Rank Sum Test. Multiple testing corrections was done using Benjamini & Hochberg
+
+9. Draw plots comparinf the distribution of eQTL beta effects across sub sets of eQTLs.
+
+All this steps are performed using the script 
+```
+Rscript CapStarrSeq/R-scripts/chiapet_analysis_eQTLs.R
+```
+
+##Identification of putative eQTL regulatory variants affecting transcription factor binding sites within CapStarr-seq promoters
+SNPs/Indels can have an impact on the affinity of Transcription Factors (TFs), this affinity can be modeled using pattern-matching approaches which deliver as result a score that correlates with TF affinity to a binding site. 
+
+We retrieved the sequences surrounding SNPs annotated in the GTEx eQTL collection using the RSAT tool **retrieve-variation-seq**, which gives as result a file with one line per SNP/Indel allele with the surrounding sequence.
+
+```{r echo=FALSE }
+
+capstarr.varScan.folder <- file.path(project_folder , "results/variation_scan", version)
+capstarr.varScan.one.tissue.comp.prefix<-"CapStarrSeq_Hela_overlap_eQTL_Uterus"
+capstarr.varScan.one.tissue.comp.file <- file.path( capstarr.varScan.folder, paste(capstarr.varScan.one.tissue.comp.prefix, ".varSeq",sep=""))
+
+## Sample of one CapStarrseq-enhancer set in HELA compared to eQTL data in Heart_Atrial_Appendage
+#capstarr.varScan.one.tissue.comp.tab <- read.delim(capstarr.varScan.one.tissue.comp.file, header=TRUE )
+
+#kable(head(capstarr.varScan.one.tissue.comp.tab ), caption = "**Table 2.** Top of a *retrieve-variation-seq* result.
+ #     One line per SNP allele with the sorrounding sequence")
+
+```
+
+In order to identify if one allele of a variant has an effect on TF binding affinity, the tool **variation-scan** scans the sequences with each allele with a motif that models TF affinity, obtains a score for each allele and then compares them in order to see if one allele has lower affinity than the other.
+
+The following parameters were used to select relevant variants:
+*At least one of the alleles was required to have an affinity score with a p-value of 10^-3 or less.
+*P-values for affinity scores of a pair of alleles was compared using ratios. The ratio between a pair of p-values had to be of 10 or higher. This implies that there was at least one order of magnitude change between allele p-values.
+
+The motifs used for this analysis were obtained from reducing redundancy of the Hocomoco and Jaspar collections, and were provided by Jaime Castro. 
+
+The makefile **makefiles/eval_distal_regulatory_variants.mk** contains the necessary tasks to perform this analysis.
+
+-List tasks
+```
+make -f makefiles/eval_distal_regulatory_variants.mk 
+```
+
+-Parse variants into a bed file
+
+```
+make -f makefiles/eval_distal_regulatory_variants.mk create_variation_bed_file
+```
+
+-Retrieve sequences surrounding all eQTLs of each tissue reported to overlap with promoter enhancers.
+
+```
+make -f makefiles/eval_distal_regulatory_variants.mk retrieve_variation_seq
+```
+
+-Scan variation sequences with the collection of motifs and report the TFBSs that could be disrupted by given alleles. 
+
+```
+make -f makefiles/get_regulatory_variants.mk variation_scan (Time consuming)
+```
+
+-Run the analysis only on specific ChIA-Pet interaction pairs. 
+
+```
+make -f makefiles/get_regulatory_variants.mk select_pairs run_retrieve_var_selected_pairs run_var_scan_pairs
+```
+
+-Example of one output file obtained by scanning variants with motifs
+
+```{r echo=FALSE}
+capstarr.varScan.folder<-capstarr.ovlp.gtex.folder <- file.path(project_folder , "results/", "chia_pet20160601/variation-scan/")
+capstarr.varScan2.one.tissue.comp.file <- file.path( capstarr.varScan.folder, paste("distal_effect_eQTLs_allClusteredMotifs_pairs_crispr_varscan_pval1e-3_pratio10_allClusteredMotifssorted_annotations.txt",sep=""))
+
+## Example of one CapStarrseq-enhancer set in HELA compared to eQTL data in Heart_Atrial_Appendage
+capstarr.varScan2.one.tissue.comp.tab <- read.delim(capstarr.varScan2.one.tissue.comp.file, header=TRUE )
+
+kable(head(capstarr.varScan2.one.tissue.comp.tab ), caption = "**Table 2.** Top of a *variation-scan* result.
+      Each line compares the affinity scores for one TF between two alleles of a variant ")
+
+```

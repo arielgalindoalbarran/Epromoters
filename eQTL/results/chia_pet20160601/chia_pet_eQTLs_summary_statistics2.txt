@@ -1,0 +1,20 @@
+eQTLs.beta.effect.summary	Min.	1st Qu.	Median	Mean	3rd Qu.	Max.
+All_eqtl	-1.725	-0.443	-0.2253	-0.05549	0.3852	1.982
+Bimodal_eqtl	-1.451	-0.4181	-0.2307	-0.04747	0.3621	1.982
+hProm_eqtl	-1.725	-0.4343	-0.2273	-0.04793	0.3889	1.982
+eProm_eqtl	-1.491	-0.5543	-0.2144	-0.1103	0.359	1.833
+Distal_hProm_eqtl	-1.668	-0.3596	-0.1014	0.03094	0.4226	1.982
+Distal_eProm_eqtl	-1.39	-0.4312	0.2004	0.05924	0.4702	1.833
+Distal_hProm_Pos_eqtl	0.09115	0.2894	0.4227	0.4799	0.594	1.982
+Distal_eProm_Pos_eqtl	0.09683	0.3165	0.4553	0.5715	0.707	1.833
+Distal_hProm_Neg_eqtl	-1.668	-0.517	-0.3594	-0.4169	-0.2572	-0.08103
+Distal_eProm_Neg_eqtl	-1.39	-0.688	-0.4458	-0.5018	-0.3025	-0.1122
+Asymmetrical_eqtl	-1.491	-0.4829	-0.2041	-0.08252	0.3623	1.932
+Asymmetrical_hProm_eqtl	-1.262	-0.4123	-0.2112	-0.04675	0.3476	1.932
+Asymmetrical_eProm_eqtl	-1.491	-0.5482	-0.1991	-0.1015	0.3691	1.833
+Bimodal_hProm_eqtl	-1.451	-0.4245	-0.2402	-0.06073	0.3538	1.982
+Bimodal_eProm_eqtl	-1.39	-0.3363	0.2005	0.09196	0.4485	1.569
+Bimodal_distal_eProm_eqtl	-1.39	-0.3222	0.2662	0.153	0.4951	1.569
+Bimodal_distal_hProm_eqtl	-1.253	-0.3374	-0.1412	0.04612	0.4197	1.982
+Bimodal_close_hProm_eqtl	-1.451	-0.4703	-0.2998	-0.1329	0.3001	1.402
+Bimodal_close_eProm_eqtl	-1.151	-0.3444	-0.1695	0.03169	0.4096	1.22

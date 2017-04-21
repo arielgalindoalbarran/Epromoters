@@ -1,0 +1,4 @@
+RowName	Epromoter	Hpromoter
+TFBSEffect	132.0000	1859.00
+NoEffect	2126.0000	13577.00
+Frac.TFBSEffect	0.0585	0.12

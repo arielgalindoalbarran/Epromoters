@@ -1,0 +1,45 @@
+; variation-scan  -v 1 -m $RSAT/public_html/tmp/apache/2016/09/21/variation-scan_2016-09-21.093028_0FOJ8Rvariation-scan_sequence_custom_motif_manualinput.tf -m_format transfac -i $RSAT/public_html/tmp/apache/2016/09/21/variation-scan_2016-09-21.093028_0FOJ8Rvariation-scan_sequence_input -bg $RSAT/public_html/tmp/apache/2016/09/21/variation-scan_2016-09-21.093028_0FOJ8R_bgfile.txt -lth score 1 -lth w_diff 1 -lth pval_ratio 5 -uth pval 1e-2
+; Program version       	1.15
+; Input files
+;	input        	tmp/apache/2016/09/21/variation-scan_2016-09-21.093028_0FOJ8Rvariation-scan_sequence_input
+;	distrib_list 	
+;	bg           	tmp/apache/2016/09/21/variation-scan_2016-09-21.093028_0FOJ8R_bgfile.txt
+; column content
+;	1	matrix_ac	Accession number of the positions-pecific scoring matrix
+;	2	matrix_name	Name of the matrix (generally the transcription factor name)
+;	3	var_id	ID of the variation
+;	4	var_class	Variation type, according to SNP Ontology (SO) nomenclature
+;	5	var_coord	Coordinates of the variation
+;	6	best_w	Best weigth for the putative site
+;	7	worst_w	Worst weigth for the putative site
+;	8	w_diff	Difference between best and worst weigth
+;	9	best_pval	P_value of the best putative site
+;	10	worst_pval	P_value of the worst putative site
+;	11	pval_ratio	Ratio between worst and best pval ( pval_ratio = worst_pval/best_pval )
+;	12	best_variant	Variant in the best putative site
+;	13	worst_variant	Variant in the worst putative site
+;	14	best_offest	Offset of the best putative site
+;	15	worst_offset	Offset of the worst putative site
+;	16	min_offset_diff	Difference minimal between best and worst putative site
+;	17	best_strand	Strand of the best putative site
+;	18	worst_strand	Strand of the worst putative site
+;	19	str_change	Indicate if strand have change between the offset of min_offset_diff
+;	20	best_seq	Sequence of the worst putative site
+;	21	worst_seq	Sequence of the worst putative site
+;	22	reference_allele	Reference allele
+;	23	is_ref_better	Flag if the reference allele is the allele with the best score
+;	24	monir_alle_freq	Minor allele frequency
+#ac_motif	motif	var_id	var_class	var_coord	best_w	worst_w	w_diff	best_pval	worst_pval	pval_ratio	best_variant	worst_variant	best_offset	worst_offset	min_offset_diff	best_strand	worst_strand	str_change	best_seq	worst_seq	reference_allele	is_ref_better	minor_allele_freq
+FOS::JUN	FOS::JUN	1_115302096_G_GT_b37	SNV	1:115302096-115302096_+	3.7	-4.4	8.10	3.4e-03	1.8e-01	52.94	GT	G	-1	-3	-2	R	R	0	TGAAACT	GAACTCC	G	N	NA
+Atf3,MAFG::NFE2L1,MAFG,NF2L1	Atf3,MAFG::NFE2L1,MAFG,NF2L1	2_160473399_A_T_b37	SNV	2:160473399-160473399_+	1.2	-4.9	6.10	4.0e-03	3.7e-02	9.25	T	A	-6	-6	0	R	R	0	AATTAGGT	ATTTAGGT	A	N	NA
+; Nb matrices	11
+; Nb scanned variations	6
+; Nb scanned sequences	132
+; Host name	biow
+; Job started	2016-09-21.093028
+; Job done	2016-09-21.093041
+; Seconds	0.3
+;	user	0.3
+;	system	0.03
+;	cuser	11.84
+;	csystem	0.25
