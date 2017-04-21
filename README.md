@@ -2,7 +2,8 @@
 
 
 Here we present a collection of scripts used for the publication:
-Genome-wide characterization of mammalian promoters with distal enhancer functions.
+
+# Genome-wide characterization of mammalian promoters with distal enhancer functions.
 
 Authors: Lan T.M. Dao, Ariel O Galindo-Albarrán, Jaime A Castro-Mondragon, Charlotte Andrieu-Soler, Alejandra Medina-Rivera, Charbel Souaid, Guillaume Charbonnier, Aurélien Griffon, Laurent Vanhille, Tharshana Stephen, Jaafar Alomairi, David Martin, Magali Torres, Nicolas Fernandez, Eric Soler, Jacques van Helden, Denis Puthier, Salvatore Spicuglia.
 
