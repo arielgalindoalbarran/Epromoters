@@ -1,7 +1,8 @@
 rule compute_proba_prom_prom:
     input: "RESULTS/PROM_PROM/{cond}-{exp}_fltr_pp_chiapet_overlap_prom.log"
     output: "RESULTS/PROM_PROM/{cond}-{exp}_fltr_pp_chiapet_overlap_prom.stat"
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     run: R("""
     Sys.sleep(6)
     data <- read.table('{input}', head=F, row=1)

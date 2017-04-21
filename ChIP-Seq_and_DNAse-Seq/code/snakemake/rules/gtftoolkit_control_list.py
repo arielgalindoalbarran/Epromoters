@@ -48,16 +48,22 @@ rule gtftoolkit_control_list:
     output:
         control_list='results/control_list_{tf_or_broad}/{strain}/{mark}/{accession_id}/control_list.txt',
         path="results/control_list_{tf_or_broad}/{strain}/{mark}/{accession_id}"
-    params:
-        ppn="nodes=1:ppn=1"
+    wildcard_constraints:
+        tf_or_broad='tf|broad',
+        strain='hela|K562',
+        mark="RAD21|POLR2A|H3K27ac|H3K4me3|tfactors|dnase|faire|epimarks"
+    conda:
+        "../envs/gtftoolkit.yaml"
+    threads:
+        1
     shell:"""
     # We remove the content in the output directory first because gtftoolkit control_list do not want to overwrite files.
     rm -rf {output.path}
 
-    {input.gtftoolkit} \
-            --infile {input.infile} \
+    python {input.gtftoolkit} \
+            --in-file {input.infile} \
             --referenceGeneFile {input.ref} \
-            --outDirectory {output.path}
+            --out-dir {output.path}
 
     # gtftoolkit produces output files with random ID so we copy the file of interest to a name compliant with snakemake requirement.
     cp {output.path}/control_list_*.txt {output.control_list}

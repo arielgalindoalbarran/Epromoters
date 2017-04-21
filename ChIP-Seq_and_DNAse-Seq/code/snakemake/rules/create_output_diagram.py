@@ -1,7 +1,8 @@
 rule create_output_diagram:
     input: "RESULTS/OUTPUT/table_summary_stats.txt"
     output: "RESULTS/OUTPUT/table_summary_stats.pdf"
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     run: R("""
     d <- read.table("{input}", sep="\t", head=F)
     d <- d[d[,1] =="Binomial_test",]
