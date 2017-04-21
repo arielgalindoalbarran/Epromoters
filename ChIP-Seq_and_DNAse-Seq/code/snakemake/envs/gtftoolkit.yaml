@@ -1,0 +1,13 @@
+channels:
+        - conda-forge
+        - defaults
+        - r
+        - bioconda
+dependencies:
+        - python=2.7
+        - pandas
+        - numpy
+        - bx-python=0.7.1
+        - pybedtools
+        - bedtools
+

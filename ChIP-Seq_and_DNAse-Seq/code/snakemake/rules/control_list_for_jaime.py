@@ -14,7 +14,8 @@ rule control_list_for_jaime:
             control_based_on_hela='results/control_list_for_jaime/control_based_on_hela.txt',\
             reference_based_on_k562='results/control_list_for_jaime/reference_based_on_k562.txt',\
             reference_based_on_hela='results/control_list_for_jaime/reference_based_on_hela.txt'
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     shell:"""
     cut -f1 {input.reference_list_hela} {input.reference_list_k562} | sort | uniq -d > {output.reference_common_epromoters}
     
@@ -55,7 +56,8 @@ rule control_list_for_jaime_plots:
     output: superposition_points_ctr_and_ref='results/control_list_for_jaime/superposition_points_ctr_and_ref.pdf',\
             superposition_lines_ctr_and_ref='results/control_list_for_jaime/superposition_lines_ctr_and_ref.pdf',\
             correlation_k562_and_hela='results/control_list_for_jaime/correlation_k562_and_hela.pdf'
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     run:R("""
     control_based_on_k562 <- read.delim("{input.control_based_on_k562}", header=FALSE)
 

@@ -8,9 +8,9 @@ rule select_chiapet_prom_prom_interaction:
             log="RESULTS/PROM_PROM/{cond}-{exp}_fltr_pp_chiapet_overlap_prom.log", \
             ip="RESULTS/PROM_PROM/{cond}-{exp}_interacting_promoters.bed",\
             eip="RESULTS/PROM_PROM/{cond}-{exp}_enhProm_in_interacting_promoters.bed"
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     shell: """
-    sleep 5
     # Select R1 fragment (line num as bed name)
     awk 'BEGIN{{FS=OFS="\\t"}}{{print $2,$3,$4,$8}}' {input.txt} | perl -ne 'print if($. > 1)' > {input.txt}_R1_tmp.bed
     touch {input.txt}_R1_tmp.bed # if not created

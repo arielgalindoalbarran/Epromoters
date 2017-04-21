@@ -6,7 +6,8 @@ rule get_chipseq_data:
             h3k4me3_k562='DATA/CHIP-SEQ/BW/ChIP-seq_H3K4me3_K562.bigWig', \
             rad21_k562='DATA/CHIP-SEQ/BW/ChIP-seq_RAD21_K562.bigWig', \
             polr2a_k562='DATA/CHIP-SEQ/BW/ChIP-seq_POLR2A_K562.bigWig'
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     shell:"""
     wget https://www.encodeproject.org/files/ENCFF000BWY/@@download/ENCFF000BWY.bigWig
     mv ENCFF000BWY.bigWig {output.h3k27ac_k562}

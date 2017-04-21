@@ -4,7 +4,8 @@ rule get_control_and_ep:
                 ctrlbed="RESULTS/ENH_PROM_AND_CTRL/control.bed", \
                 ep='RESULTS/ENH_PROM_AND_CTRL/enh-prom-k562.tsv', \
                 bed="RESULTS/ENH_PROM_AND_CTRL/enh-prom-k562.bed"
-    params: ppn="nodes=1:ppn=1", seed=SEED
+    threads:
+        1
     run : R("""
 
         all <- read.table('{input.allres}', head=T)

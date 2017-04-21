@@ -1,13 +1,11 @@
-"""
-"""
-
 rule create_explicit_name_part1_r:
     """
     """
     input:  tsv='data/Encode/{strain}/epimarks/metadata.tsv',\
             path='data/Encode/{strain}/epimarks/'
     output: ln_command='data/Encode/{strain}/epimarks/ln_command_to_eval.txt'
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     run:
         R("""
         metadata <- read.delim("{input.tsv}")
@@ -50,7 +48,8 @@ rule create_explicit_name_part2_soft_link:
     """
     input:  tsv='data/Encode/{strain}/epimarks/metadata_names.tsv'
     output: done='data/Encode/{strain}/epimarks/soft_link.done'
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     shell:"""
     touch {output.done} 
     """

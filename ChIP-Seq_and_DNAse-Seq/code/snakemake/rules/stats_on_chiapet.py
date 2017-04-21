@@ -1,7 +1,8 @@
 rule stats_on_chiapet:
     input: "DATA/{exp}.tsv"
     output: "RESULTS/STAT_ON_CHIAPET/{exp}.pdf"
-    params: ppn="nodes=1:ppn=1"
+    threads:
+        1
     run: R("""
     d <- read.table("{input}", header=TRUE)
     len.1 <- log2(d$stop1-d$start1)

@@ -4,8 +4,8 @@ rule chiapet_tsv_to_bed12:
     output:
         junctions="RESULTS/CHIAPET_TSV_TO_BED12/JUNCTIONS/{exp}_junctions.bed",
         bed="RESULTS/CHIAPET_TSV_TO_BED12/BED/{exp}.bed"
-    params:
-        ppn="nodes=1:ppn=1"
+    threads:
+        1
     run: R("""
         # Formatting Chiapet tsv files to bed12 in order to see interactions
         # See bed12 reference: https://genome.ucsc.edu/FAQ/FAQformat.html#format1

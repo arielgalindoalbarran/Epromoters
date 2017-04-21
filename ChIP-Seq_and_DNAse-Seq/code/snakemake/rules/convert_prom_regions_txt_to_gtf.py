@@ -16,8 +16,8 @@ rule convert_prom_regions_txt_to_gtf:
     output:
         gtfFT='data/All_hpromoterRegions_m200p50_geneID.gtf',
         gtfBroad='data/All_hpromoterRegions_m1000p1000_geneID.gtf'
-    params:
-        ppn="nodes=1:ppn=1"
+    threads:
+        1
     shell:
         """
         cut --fields 7 {input.txt} > {input.txt}_bed4.txt

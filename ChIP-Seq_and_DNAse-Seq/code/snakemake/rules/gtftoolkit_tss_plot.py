@@ -9,8 +9,8 @@ rule control_list_to_gtf:
         gtf="annotation/RefSeqGenes_hg19_mainChr.gtf"
     output:
         gtf="results/control_list_to_gtf/{strain}_{control_or_reference}_list.gtf"
-    params:
-        ppn="nodes=1:ppn=1"
+    threads:
+        1
     shell:
         """
         rm -f {output.gtf}
@@ -29,23 +29,40 @@ rule gtftoolkit_tss_plot_v3:
     expand("result/tss_plot/{broad_or_tf}/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}", broad_or_tf ....)
     u5000d5000w200
     u1000d1000w40
-    """
+
+python code/python/gtftoolkit/tss_cov.py             -k 8 -i results/control_list_to_gtf/K562_control_list.gtf -c annotation/ChromInfo.txt -v             -l data/Encode/K562/tfactors/ENCFF000ZBL.bigWig             --labels K562_tfactors_ENCFF000ZBL_control             -o results/tss_plot_v3/K562/tfactors/ENCFF000ZBL/control/transform_none/u5000d5000w200             -u 5000 -d 5000 -w 200
+
+"""
     input:
         gtf="results/control_list_to_gtf/{strain}_{control_or_reference}_list.gtf",
         chrominfo="annotation/ChromInfo.txt",
-        bw="data/Encode/{strain}/{mark}/{accession_id}.bigWig"
+        bw="data/Encode/{strain}/{mark}/{accession_id}.bigWig",
+        tss_cov="code/python/gtftoolkit/tss_cov.py"
     output:
-        output_dir="results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}"
+        done="results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}/done"
     params:
-        ppn="nodes=1:ppn=15"
+        output_dir="results/tss_plot_v3/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}/u{upstream}d{downstream}w{window}"
+    conda:
+        "../envs/gtftoolkit.yaml"
+    threads:
+        8
     shell:
         """
-        gtftoolkit tss_plot \
-            -k 15 -i {input.gtf} -c {input.chrominfo} -v -n 4 -T {wildcards.transform} \
+        #gtftoolkit tss_plot \
+        #    -k 15 -i {input.gtf} -c {input.chrominfo} -v -n 4 -T {wildcards.transform} \
+    
+        rm -rf {params.output_dir}
+
+        python {input.tss_cov} \
+            -k {threads} -i {input.gtf} -c {input.chrominfo} -v \
             -l {input.bw} \
-            --labels {wildcards.strain}_{wildcards.mark}_{wildcards.accession_id}_{wildcards.control_or_reference} \
-            -o {output.output_dir} \
+            -L {wildcards.strain}_{wildcards.mark}_{wildcards.accession_id}_{wildcards.control_or_reference} \
+            -o {params.output_dir} \
             -u {wildcards.upstream} -d {wildcards.downstream} -w {wildcards.window}
+
+
+
+        touch {output.done}
         """
 
 rule gtftoolkit_tss_plot:
@@ -56,17 +73,26 @@ rule gtftoolkit_tss_plot:
     expand("result/tss_plot/{broad_or_tf}/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}", broad_or_tf ....)
     """
     input:
-        gtf="results/control_list_to_gtf/{broad_or_tf}/{strain}/{mark}/{accession_id}/{control_or_reference}.gtf",
+        gtf="results/control_list_to_gtf/{broad_or_tf}/{strain}/{mark}/{accession_id}/{control_or_reference}_list.gtf",
         chrominfo="annotation/ChromInfo.txt",
-        bw="data/Encode/{strain}/{mark}/{accession_id}.bigWig" 
+        bw="data/Encode/{strain}/{mark}/{accession_id}.bigWig",
+        tss_cov="code/python/gtftoolkit/tss_cov.py"
     output:
         output_dir="results/tss_plot/{broad_or_tf}/{strain}/{mark}/{accession_id}/{control_or_reference}/transform_{transform}"
-    params:
-        ppn="nodes=1:ppn=15"
+    conda:
+        "../envs/gtftoolkit.yaml"
+    wildcard_constraints:
+        ft_or_broad='tf|broad',
+        strain='hela|K562',
+        mark="RAD21|POLR2A|H3K27ac|H3K4me3"
+    threads:
+        8
     shell:
         """
-        gtftoolkit tss_plot \
-            -k 15 -i {input.gtf} -c {input.chrominfo} -v -n 4 -T {wildcards.transform} \
+        #gtftoolkit tss_plot \
+        #    -k 15 -i {input.gtf} -c {input.chrominfo} -v -n 4 -T {wildcards.transform} \
+        python {input.tss_cov} \
+            -k {threads} -i {input.gtf} -c {input.chrominfo} -v \
             -l {input.bw} \
             --labels {wildcards.strain}_{wildcards.mark}_{wildcards.accession_id}_{wildcards.control_or_reference} \
             -o {output.output_dir} \
@@ -75,11 +101,15 @@ rule gtftoolkit_tss_plot:
 
 rule merge_control_and_reference_tss_plot:
     input:
-        input_dir_ctr="results/tss_plot_v3/{strain}/{mark}/{accession_id}/control/transform_{transform}/u{upstream}d{downstream}w{window}",
-        input_dir_ref="results/tss_plot_v3/{strain}/{mark}/{accession_id}/reference/transform_{transform}/u{upstream}d{downstream}w{window}"
+        input_done_ctr="results/tss_plot_v3/{strain}/{mark}/{accession_id}/control/transform_{transform}/u{upstream}d{downstream}w{window}/done",
+        input_done_ref="results/tss_plot_v3/{strain}/{mark}/{accession_id}/reference/transform_{transform}/u{upstream}d{downstream}w{window}/done"
     output:
         merged_tss_plot="results/merge_control_and_reference_tss_plot/{strain}_{mark}_{accession_id}_merged_tss_plot_transform_{transform}_u{upstream}d{downstream}w{window}.pdf"
-    params: ppn="nodes=1:ppn=1"
+    params:
+        input_dir_ctr="results/tss_plot_v3/{strain}/{mark}/{accession_id}/control/transform_{transform}/u{upstream}d{downstream}w{window}",
+        input_dir_ref="results/tss_plot_v3/{strain}/{mark}/{accession_id}/reference/transform_{transform}/u{upstream}d{downstream}w{window}"
+    threads:
+        1
     run: 
         R("""
         load.fun <- function(x) {{
@@ -147,7 +177,7 @@ rule merge_control_and_reference_tss_plot:
         
         
         ### Reference
-        path_ref <- "{input.input_dir_ref}"
+        path_ref <- "{params.input_dir_ref}"
         file_ref <- list.files(path=path_ref, pattern="coverage_matrix*")
         d_ref <- as.data.frame(
             fread(
@@ -161,7 +191,7 @@ rule merge_control_and_reference_tss_plot:
         
         
         ### Control
-        path_ctr <- "{input.input_dir_ctr}"
+        path_ctr <- "{params.input_dir_ctr}"
         file_ctr <- list.files(path=path_ctr, pattern="coverage_matrix*")
         d_ctr <- as.data.frame(
             fread(
@@ -232,19 +262,19 @@ rule merge_control_and_reference_tss_plot:
             dm_merge$pos <- as.numeric(as.character(dm_merge$pos))
     
     
-        write.table(dm_merge, "testTable.txt") 
-        pdf("justAtest.pdf")
-        plot(x=c(1,2,3))
-        dev.off()
+        #write.table(dm_merge, "testTable.txt") 
+        #pdf("justAtest.pdf")
+        #plot(x=c(1,2,3))
+        #dev.off()
     
     
         df <- data.frame(gp = factor(rep(letters[1:3], each = 10)),
                      y = rnorm(30))
                      p <- ggplot(df, aes(x = gp, y = y)) +
                         geom_point()
-        pdf("anotherTest.pdf")
-        print(p)
-        dev.off()
+        #pdf("anotherTest.pdf")
+        #print(p)
+        #dev.off()
     
         p <- ggplot(dm_merge, aes(x=pos,y=exprs, group=group, colour = group))
         p <- p + stat_summary(fun.y = mean, geom="line", size=0.8)
