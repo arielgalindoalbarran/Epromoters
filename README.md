@@ -9,25 +9,25 @@ Authors: Lan T.M. Dao, Ariel O Galindo-Albarrán, Jaime A Castro-Mondragon, Char
 
 The scripts and the contribution to the results are listed:
 
-1.	Human CapStarr-seq 
-File: CapStarr-Seq
-Include: Snakefile and code.
+1.	Human CapStarr-seq. 
+	File: CapStarr-Seq.
+	Include: Snakefile and code.
 
-2.	RNA transcription and selection of control set
-	File: ChIP-Seq_and_DNAse-Seq and TF_RNA_Epigenomic
-	Include: R scripts, customized program coded in python: gtftoolkit
+2.	RNA transcription and selection of control set.
+	File: ChIP-Seq_and_DNAse-Seq and TF_RNA_Epigenomic.
+	Include: R scripts, customized program coded in python: gtftoolkit.
 
-3.	Epigenomic analysis, and Transcription factors enrichment and density
-	File: ChIP-Seq_and_DNAse-Seq and TF_RNA_Epigenomic
-	Include: R scripts, customized program coded in python: gtftoolkit
+3.	Epigenomic analysis, and Transcription factors enrichment and density.
+	File: ChIP-Seq_and_DNAse-Seq and TF_RNA_Epigenomic.
+	Include: R scripts, customized program coded in python: gtftoolkit.
 
-4.	Motif analysis in Epromoters
-	File: Epromoters_motif_analysis
+4.	Motif analysis in Epromoters.
+	File: Epromoters_motif_analysis.
 	Include: R scripts and data. 
-5.	Computations for ChIA-PET enrichment score of P-P interactions
+5.	Computations for ChIA-PET enrichment score of P-P interactions.
 	File: ChIA-PET
 	Include: R scripts, customized program coded in python: gtftoolkit 
-6.	eQTL analysis
+6.	eQTL analysis.
 	File: eQTL
 	Include: R scripts, data and results.
 
