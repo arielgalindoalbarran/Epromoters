@@ -1,0 +1,56 @@
+; oligo-analysis  -v 1 -quick -1str -i results/sequences/All_promoterRegions.fasta -l 2 -noov -o results/BG_models//All_promoterRegions_BG_model_mkv_2.oligos
+; Citation: van Helden et al. (1998). J Mol Biol 281(5), 827-42. 
+; Program version              	1.169
+; Quick counting mode          
+; Oligomer length              	2
+; Input file                   	results/sequences/All_promoterRegions.fasta
+; Input format                 	fasta
+; Output file                  	results/BG_models//All_promoterRegions_BG_model_mkv_2.oligos
+; Discard overlapping matches
+; Counted on a single strand
+; Background model             	Bernoulli
+; Background estimation method 	
+; Sequence type                	DNA
+; Nb of sequences              	20725
+; Sum of sequence lengths      	5181250
+; discarded residues           	NA (quick mode)	 (other letters than ACGT)
+; discarded occurrences        	NA (quick mode)	 (contain discarded residues)
+; nb possible positions        	NA (quick mode)
+; total oligo occurrences      	5160523
+; total overlapping occurrences	395138
+; total non overlapping occ    	4765385
+; alphabet size                	4
+; nb possible oligomers        	16
+; oligomers tested for significance	0
+;
+; column headers
+;	1	seq            	oligomer sequence
+;	2	id             	oligomer identifier
+;	3	occ            	observed occurrences
+;	4	ovl_occ        	number of overlapping occurrences (discarded from the count)
+;	5	forbocc        	forbidden positions (to avoid self-overlap)
+#seq	id	occ	ovl_occ	forbocc
+aa	aa	196972	61040	196972
+ac	ac	228881	0	228881
+ag	ag	365712	0	365712
+at	at	167792	0	167792
+ca	ca	317368	0	317368
+cc	cc	396302	135591	396302
+cg	cg	340350	0	340350
+ct	ct	367209	0	367209
+ga	ga	304328	0	304328
+gc	gc	489801	0	489801
+gg	gg	397086	135614	397086
+gt	gt	229913	0	229913
+ta	ta	140356	0	140356
+tc	tc	305967	0	305967
+tg	tg	318240	0	318240
+tt	tt	199108	62893	199108
+; Host name	rsat-tagc
+; Job started	2015-09-09.111024
+; Job done	2015-09-09.111025
+; Seconds	0.35
+;	user	0.35
+;	system	0.03
+;	cuser	1.02
+;	csystem	0.04

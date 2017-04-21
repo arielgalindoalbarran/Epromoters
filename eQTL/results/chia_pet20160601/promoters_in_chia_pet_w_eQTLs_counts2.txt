@@ -1,0 +1,10 @@
+Promoter Type	Number of Promoters in type
+Num. Proms in ChiaPet Interactions	6670
+Num. eProms in ChiaPet Interactions	479
+Num. hProms in ChiaPet Interactions	6191
+Num. Proms in ChiaPet with eQTL Distal Target	1318
+Num. eProms in ChiaPet with eQTL Distal Target	143
+Num. hProms in ChiaPet with eQTL Distal Target	1175
+Num. Proms in ChiaPet with eQTL Close Target	2227
+Num. eProms in ChiaPet with eQTL Close Target	259
+Num. hProms in ChiaPet with eQTL Close Target	1968

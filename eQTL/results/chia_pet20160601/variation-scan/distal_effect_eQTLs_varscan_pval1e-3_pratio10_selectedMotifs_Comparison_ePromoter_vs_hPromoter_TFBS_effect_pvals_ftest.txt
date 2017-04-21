@@ -1,0 +1,5 @@
+RowName	Pvalue	pAdjustBH
+compare.posBeta.eprom.vs.hprom.TFBSeffect.ftest	1.84045857162016e-10	1.84045857162016e-10
+compare.negBeta.eprom.vs.hprom.TFBSeffect.ftest	1.00900500593461e-20	4.03602002373845e-20
+compare.eprom.posBeta.vs.negBeta.TFBSeffect.ftest	5.64503088332002e-20	1.129006176664e-19
+compare.hprom.posBeta.vs.negBeta.TFBSeffect.ftest	6.49363509299248e-14	8.65818012398997e-14

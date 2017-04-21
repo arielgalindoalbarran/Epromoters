@@ -1,0 +1,4 @@
+RowName	PositiveBetaEffect	NegativeBetaEffect
+TFBSEffect	339.000	132.0000
+NoEffect	2134.000	2126.0000
+Frac.TFBSEffect	0.137	0.0585

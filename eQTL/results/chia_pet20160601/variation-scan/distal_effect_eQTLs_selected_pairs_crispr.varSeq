@@ -1,0 +1,13 @@
+#chr	start	end	strand	id	soterm	ref_var	alt_var	allele_freq	seq
+1	115300370	115300370	+	1_115300370_T_C_b37	SNV	T	C	NA	ctctgcgacctgacatgaggcccaggcagCtgaacgggagacgtatgaaaaagcccagg
+1	115300370	115300370	+	1_115300370_T_C_b37	SNV	T	T	NA	ctctgcgacctgacatgaggcccaggcagTtgaacgggagacgtatgaaaaagcccagg
+1	115300685	115300685	+	1_115300685_C_T_b37	SNV	C	T	NA	agaaggggcggagtgaagcgtactctcaaTacgcttgcgcagcagggctaagtgacgcc
+1	115300685	115300685	+	1_115300685_C_T_b37	SNV	C	C	NA	agaaggggcggagtgaagcgtactctcaaCacgcttgcgcagcagggctaagtgacgcc
+1	115302096	115302096	+	1_115302096_G_GT_b37	SNV	G	GT	NA	aatgtaaatttttttttttttcagatggaGTttcactcgtgttgcctaggctggagtgca
+1	115302096	115302096	+	1_115302096_G_GT_b37	SNV	G	G	NA	aatgtaaatttttttttttttcagatggaGttcactcgtgttgcctaggctggagtgca
+2	160472950	160472950	+	2_160472950_C_T_b37	SNV	C	T	NA	cttcgactccctccttctccgtcttccgcTtctctctctctgattagttcctatccagc
+2	160472950	160472950	+	2_160472950_C_T_b37	SNV	C	C	NA	cttcgactccctccttctccgtcttccgcCtctctctctctgattagttcctatccagc
+2	160473399	160473399	+	2_160473399_A_T_b37	SNV	A	T	NA	gggagcataggtcaaccatctccacctaaTttttttttgttcctaaactcagaattcta
+2	160473399	160473399	+	2_160473399_A_T_b37	SNV	A	A	NA	gggagcataggtcaaccatctccacctaaAttttttttgttcctaaactcagaattcta
+2	208491108	208491108	+	2_208491108_AT_A_b37	SNV	AT	A	NA	gctggccatgggagggggcccgagcgctgAtttttttgtttggttttttgcttttgttt
+2	208491108	208491108	+	2_208491108_AT_A_b37	SNV	AT	AT	NA	gctggccatgggagggggcccgagcgctgATtttttttgtttggttttttgcttttgttt
